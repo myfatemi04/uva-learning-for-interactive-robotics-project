@@ -61,7 +61,15 @@ class Agent(nn.Module):
 
 
 @torch.no_grad()
-def collect_rollouts(env: gym.Env, agent: Agent, steps=100) -> Rollout:
+def collect_rollouts(
+    env: gym.Env,
+    agent: Agent,
+    gamma: float,
+    lambda_: float,
+    normalize_advantages: bool,
+    steps: int,
+    finite_horizon_gae: bool,
+) -> Rollout:
     obs = env.reset()
     states = []
     actions = []
@@ -82,6 +90,14 @@ def collect_rollouts(env: gym.Env, agent: Agent, steps=100) -> Rollout:
         dones.append(terminated | truncated)
         next_value_estimates.append(agent.critic(obs))
 
+    states = torch.stack(states)
+    actions = torch.stack(actions)
+    rewards = torch.tensor(rewards)
+    logprobs = torch.stack(logprobs)
+    dones = torch.tensor(dones)
+    value_estimates = torch.tensor(value_estimates)
+    next_value_estimates = torch.tensor(next_value_estimates)
+
     return Rollout.from_raw_states(
         states,
         actions,
@@ -91,6 +107,10 @@ def collect_rollouts(env: gym.Env, agent: Agent, steps=100) -> Rollout:
         value_estimates,
         infos,
         next_value_estimates,
+        gamma,
+        lambda_,
+        normalize_advantages,
+        finite_horizon_gae,
     )
 
 
