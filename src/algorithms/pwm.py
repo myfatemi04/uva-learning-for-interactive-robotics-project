@@ -14,14 +14,14 @@ import torch.nn.functional as F
 from collections import OrderedDict
 
 
-from pwm.utils.common import *
-import pwm.utils.torch_utils as tu
-from pwm.utils.running_mean_std import RunningMeanStd
-from pwm.utils.dataset import CriticDataset
-from pwm.utils.time_report import TimeReport
-from pwm.utils.average_meter import AverageMeter
-from pwm.models.model_utils import Ensemble
-from pwm.utils.buffer import Buffer
+from .utils.common import *
+from .utils import torch_utils as tu
+from .utils.running_mean_std import RunningMeanStd
+from .utils.dataset import CriticDataset
+from .utils.time_report import TimeReport
+from .utils.average_meter import AverageMeter
+from .models.model_utils import Ensemble
+from .utils.buffer import Buffer
 
 tensordict.set_lazy_legacy(False).set()
 

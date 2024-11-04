@@ -8,13 +8,13 @@ from torch.nn.utils.clip_grad import clip_grad_norm_
 from gym import Env
 import tensordict
 from tensordict import TensorDict
-from pwm.utils.common import *
-import pwm.utils.torch_utils as tu
-from pwm.utils.running_mean_std import RunningMeanStd
-from pwm.utils.dataset import CriticDataset
-from pwm.utils.time_report import TimeReport
-from pwm.utils.average_meter import AverageMeter
-from pwm.models.model_utils import Ensemble
+from .utils.common import *
+from .utils import torch_utils as tu
+from .utils.running_mean_std import RunningMeanStd
+from .utils.dataset import CriticDataset
+from .utils.time_report import TimeReport
+from .utils.average_meter import AverageMeter
+from .models.model_utils import Ensemble
 
 tensordict.set_lazy_legacy(False).set()
 

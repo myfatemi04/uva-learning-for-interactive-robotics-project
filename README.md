@@ -5,4 +5,4 @@ Accelerating policy gradient learning through latent world models. Course projec
 
 This is a fork of [PWM](https://github.com/imgeorgiev/PWM) and [TD-MPC2](https://github.com/nicklashansen/tdmpc2). Particularly:
 * `common` and `envs` are originally from TD-MPC2
-* `pwm` is originally from PWM
+* `algorithms`, `models`, and `utils` are originally from PWM

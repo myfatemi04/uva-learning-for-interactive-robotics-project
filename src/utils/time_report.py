@@ -1,5 +1,5 @@
 import time
-from pwm.utils.common import *
+from .utils.common import *
 
 
 class Timer:
