@@ -1,4 +1,5 @@
 external
 env
-*.pt
+**/*.pt
 **/__pycache__/
+data

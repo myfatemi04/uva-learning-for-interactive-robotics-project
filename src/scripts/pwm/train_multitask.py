@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 import numpy as np
 import torch
 
@@ -15,9 +15,9 @@ from tqdm import tqdm
 import hydra
 from time import time
 
-from tdmpc2.envs import make_env
-from pwm.utils.common import seeding
-from tdmpc2.common import TASK_SET
+from ..envs import make_env
+from ..utils.common import seeding
+from ..common import TASK_SET
 from copy import deepcopy
 from hydra.core.hydra_config import HydraConfig
 from hydra.utils import instantiate
@@ -170,7 +170,7 @@ def eval(agent, env, task_set, task_idx, eval_episodes):
 
 
 @hydra.main(config_path="cfg", config_name="config_mt30.yaml", version_base="1.2")
-def train(cfg: hydra.DictConfig):
+def train(cfg):
     """
     Script for training single-task / multi-task TD-MPC2 agents.
 

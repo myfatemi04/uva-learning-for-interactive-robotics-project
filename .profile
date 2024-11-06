@@ -1,0 +1,6 @@
+MUJOCO_INSTALL_DIR=~/.mujoco
+MUJOCO_BIN=$MUJOCO_INSTALL_DIR/mujoco210/bin
+NVIDIA_LIB=/usr/lib/nvidia
+CONDA_LIB=~/miniforge3/envs/tdmpc2/lib
+
+export LD_LIBRARY_PATH=$CONDA_LIB:$MUJOCO_BIN:$NVIDIA_LIB:$LD_LIBRARY_PATH

@@ -435,7 +435,7 @@ class VisualPWM:
             # Note this is important to do after critic next value compuataion!
             if self.env:
                 done = gt_term | gt_trunc
-                done_env_ids = gt_done.nonzero(as_tuple=False).squeeze(-1)
+                done_env_ids = done.nonzero(as_tuple=False).squeeze(-1)
                 gt_z = self.wm.encode(obs, task)
                 z = torch.where(done[..., None], gt_z, z)
 
@@ -464,7 +464,7 @@ class VisualPWM:
             with torch.no_grad():
                 self.rew_buf[i] = rew.clone()
                 if i < self.horizon - 1 and self.env is not None:
-                    self.done_mask[i] = gt_done.clone().to(torch.float32)
+                    self.done_mask[i] = done.clone().to(torch.float32)
                 else:
                     self.done_mask[i, :] = 1.0
                 if self.env is not None:
