@@ -25,6 +25,7 @@ class MultitaskWrapper(gym.Wrapper):
         self.action_space = gym.spaces.Box(
             low=-1, high=1, shape=(self._action_dim,), dtype=np.float32
         )
+        self.max_episode_steps = max(self._episode_lengths)
 
     @property
     def task(self):

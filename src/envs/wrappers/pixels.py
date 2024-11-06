@@ -22,6 +22,7 @@ class PixelWrapper(gym.Wrapper):
         )
         self._frames = deque([], maxlen=num_frames)
         self._render_size = render_size
+        self.max_episode_steps = env.max_episode_steps
 
     def _get_obs(self):
         frame = self.env.render(

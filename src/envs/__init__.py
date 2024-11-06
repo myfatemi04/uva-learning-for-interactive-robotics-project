@@ -82,14 +82,17 @@ def make_env(cfg):
             raise ValueError(
                 f'Failed to make environment "{cfg.task}": please verify that dependencies are installed and that the task exists.'
             )
-        print(type(env))
         env = TensorWrapper(env)
     if cfg.get("obs", "state") == "rgb":
         env = PixelWrapper(cfg, env)
-    try:  # Dict
+
+    if isinstance(env.observation_space, gym.spaces.Dict):
         cfg.obs_shape = {k: v.shape for k, v in env.observation_space.spaces.items()}
-    except:  # Box
+    elif isinstance(env.observation_space, gym.spaces.Box):
         cfg.obs_shape = {cfg.get("obs", "state"): env.observation_space.shape}
+    else:
+        raise NotImplementedError("Unknown observation space:", env.observation_space)
+
     cfg.action_dim = env.action_space.shape[0]
     cfg.episode_length = env.max_episode_steps
     cfg.seed_steps = max(1000, 5 * cfg.episode_length)

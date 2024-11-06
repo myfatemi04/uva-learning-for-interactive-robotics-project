@@ -13,6 +13,8 @@ class TensorWrapper(gym.Wrapper):
     def __init__(self, env):
         super().__init__(env)
 
+        self.max_episode_steps = env.max_episode_steps
+
     def rand_act(self):
         return torch.from_numpy(self.action_space.sample().astype(np.float32))
 
@@ -34,12 +36,13 @@ class TensorWrapper(gym.Wrapper):
         return self._obs_to_tensor(self.env.reset())
 
     def step(self, action):
-        obs, reward, done, info = self.env.step(action.numpy())
+        obs, reward, terminated, truncated, info = self.env.step(action.numpy())
         info = defaultdict(float, info)
         info["success"] = float(info["success"])
         return (
             self._obs_to_tensor(obs),
             torch.tensor(reward, dtype=torch.float32),
-            done,
+            terminated,
+            truncated,
             info,
         )
