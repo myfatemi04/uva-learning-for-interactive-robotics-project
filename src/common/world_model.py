@@ -101,6 +101,7 @@ class WorldModel(nn.Module):
 			return torch.stack([self._encoder[self.cfg.obs](o) for o in obs])
 		return self._encoder[self.cfg.obs](obs)
 
+	@torch.compile()
 	def next(self, z, a, task):
 		"""
 		Predicts the next latent state given the current latent state and action.
@@ -109,7 +110,8 @@ class WorldModel(nn.Module):
 			z = self.task_emb(z, task)
 		z = torch.cat([z, a], dim=-1)
 		return self._dynamics(z)
-	
+
+	@torch.compile()
 	def reward(self, z, a, task):
 		"""
 		Predicts instantaneous (single-step) reward.
@@ -119,6 +121,7 @@ class WorldModel(nn.Module):
 		z = torch.cat([z, a], dim=-1)
 		return self._reward(z)
 
+	@torch.compile()
 	def pi(self, z, task):
 		"""
 		Samples an action from the policy prior.
@@ -147,6 +150,7 @@ class WorldModel(nn.Module):
 
 		return mu, pi, log_pi, log_std
 
+	@torch.compile()
 	def Q(self, z, a, task, return_type='min', target=False):
 		"""
 		Predict state-action value.

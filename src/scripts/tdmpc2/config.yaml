@@ -63,9 +63,9 @@ simnorm_dim: 8
 
 # logging
 wandb_project: tdmpc2_test
-wandb_entity: myfatemi04
+wandb_entity: myfatemi
 wandb_silent: false
-disable_wandb: true
+disable_wandb: false
 save_csv: true
 
 # misc

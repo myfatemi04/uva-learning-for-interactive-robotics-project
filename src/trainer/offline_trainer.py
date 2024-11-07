@@ -92,16 +92,19 @@ class OfflineTrainer(Trainer):
         for i in range(self.cfg.steps):
 
             # Update agent
+            start_time = time()
             train_metrics = self.agent.update(self.buffer)
+            end_time = time()
+            # print("agent update time:", end_time - start_time)
 
             # Evaluate agent periodically
-            if i % self.cfg.eval_freq == 0 or i % 10_000 == 0:
+            if (i + 1) % self.cfg.eval_freq == 0 or (i + 1) % 10_000 == 0:
                 metrics = {
                     "iteration": i,
                     "total_time": time() - self._start_time,
                 }
                 metrics.update(train_metrics)
-                if i % self.cfg.eval_freq == 0:
+                if (i + 1) % self.cfg.eval_freq == 0:
                     metrics.update(self.eval())
                     self.logger.pprint_multitask(metrics, self.cfg)
                     if i > 0:
