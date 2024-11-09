@@ -7,6 +7,7 @@ import gymnasium as gym
 from envs.wrappers.multitask import MultitaskWrapper
 from envs.wrappers.pixels import PixelWrapper
 from envs.wrappers.tensor import TensorWrapper
+from envs.wrappers.vectorized import Vectorized
 
 
 def missing_dependencies(task):
@@ -76,12 +77,17 @@ def make_env(cfg):
         ]:
             try:
                 env = fn(cfg)
+                break
             except ValueError:
                 pass
         if env is None:
             raise ValueError(
                 f'Failed to make environment "{cfg.task}": please verify that dependencies are installed and that the task exists.'
             )
+        assert (
+            cfg.num_envs == 1 or cfg.get("obs", "state") == "state"
+        ), "Vectorized environments only support state observations."
+        env = Vectorized(cfg, fn)
         env = TensorWrapper(env)
     if cfg.get("obs", "state") == "rgb":
         env = PixelWrapper(cfg, env)
@@ -95,5 +101,5 @@ def make_env(cfg):
 
     cfg.action_dim = env.action_space.shape[0]
     cfg.episode_length = env.max_episode_steps
-    cfg.seed_steps = max(1000, 5 * cfg.episode_length)
+    cfg.seed_steps = max(1000, 5 * cfg.episode_length) * cfg.num_envs
     return env

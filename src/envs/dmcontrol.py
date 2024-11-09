@@ -30,7 +30,7 @@ class ExtendedTimeStep(NamedTuple):
 
 
 class ActionRepeatWrapper(dm_env.Environment):
-    def __init__(self, env, num_repeats):
+    def __init__(self, env: dm_env.Environment, num_repeats):
         self._env = env
         self._num_repeats = num_repeats
 
@@ -60,7 +60,7 @@ class ActionRepeatWrapper(dm_env.Environment):
 
 
 class ActionDTypeWrapper(dm_env.Environment):
-    def __init__(self, env, dtype):
+    def __init__(self, env: dm_env.Environment, dtype):
         self._env = env
         wrapped_action_spec = env.action_spec()
         self._action_spec = specs.BoundedArray(
@@ -89,7 +89,7 @@ class ActionDTypeWrapper(dm_env.Environment):
 
 
 class ExtendedTimeStepWrapper(dm_env.Environment):
-    def __init__(self, env):
+    def __init__(self, env: dm_env.Environment):
         self._env = env
 
     def reset(self):
@@ -123,7 +123,7 @@ class ExtendedTimeStepWrapper(dm_env.Environment):
 
 
 class TimeStepToGymWrapper(gym.Env):
-    def __init__(self, env, domain, task):
+    def __init__(self, env: dm_env.Environment, domain, task):
         obs_shp = []
         for v in env.observation_spec().values():
             try:
@@ -184,6 +184,9 @@ class TimeStepToGymWrapper(gym.Env):
     def render(self, mode="rgb_array", width=384, height=384, camera_id=0):
         camera_id = dict(quadruped=2).get(self.domain, camera_id)
         return self.env.physics.render(height, width, camera_id)
+
+    def close(self):
+        self.env.close()
 
 
 def make_env(cfg):

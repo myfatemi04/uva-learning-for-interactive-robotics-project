@@ -10,12 +10,14 @@ class TensorWrapper(gym.Wrapper):
     Wrapper for converting numpy arrays to torch tensors.
     """
 
-    def __init__(self, env):
+    def __init__(self, env: gym.Env):
         super().__init__(env)
 
-        self.max_episode_steps = env.max_episode_steps
+        self._wrapped_vectorized = env.__class__.__name__ == "Vectorized"
 
     def rand_act(self):
+        if self._wrapped_vectorized:
+            return self.env.rand_act()
         return torch.from_numpy(self.action_space.sample().astype(np.float32))
 
     def _try_f32_tensor(self, x):
@@ -32,11 +34,29 @@ class TensorWrapper(gym.Wrapper):
             obs = self._try_f32_tensor(obs)
         return obs
 
-    def reset(self, task_idx=None):
-        return self._obs_to_tensor(self.env.reset())
+    def reset(self, task_idx=None, **kwargs):
+        if self._wrapped_vectorized:
+            obs = self.env.reset(**kwargs)
+        else:
+            obs = self.env.reset()
+        return self._obs_to_tensor(obs)
 
-    def step(self, action):
-        obs, reward, terminated, truncated, info = self.env.step(action.numpy())
+    def step(self, action, **kwargs):
+        obs, reward, terminated, truncated, info = self.env.step(
+            action.numpy(), **(kwargs if self._wrapped_vectorized else {})
+        )
+
+        if isinstance(info, tuple):
+            info = {
+                key: torch.stack([torch.tensor(d[key]) for d in info])
+                for key in info[0].keys()  # type: ignore
+            }
+            if "success" not in info.keys():
+                info["success"] = torch.zeros(len(terminated))  # type: ignore
+        else:
+            info = defaultdict(float, info)
+            info["success"] = float(info["success"])
+
         info = defaultdict(float, info)
         info["success"] = float(info["success"])
         return (
