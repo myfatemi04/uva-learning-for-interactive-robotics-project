@@ -81,13 +81,21 @@ class OnlineTrainer(Trainer):
         terminated = torch.tensor(True)
         truncated = torch.tensor(True)
         eval_next = True
+        last_eval_step = 0
 
-        self.cfg.seed_steps = 6000
+        env_step_duration = 0
+        env_steps = 0
+        agent_update_duration = 0
+        agent_update_steps = 0
+        act_duration = 0
+        act_steps = 0
+
+        self.cfg.seed_steps = 6000 # * self.cfg.num_envs
         while self._step <= self.cfg.steps:
-            print("Running step", self._step)
-
             # Evaluate agent periodically
-            if self._step > 0 and self._step % self.cfg.eval_freq == 0:
+            # if self._step > 0 and (self._step - last_eval_step) > self.cfg.eval_freq:
+            #     eval_next = True
+            if self._step % self.cfg.eval_freq == 0:
                 eval_next = True
 
             # Reset environment
@@ -97,6 +105,7 @@ class OnlineTrainer(Trainer):
                     _done.all()
                 ), "Vectorized environments must reset all environments at once."
                 if eval_next:
+                    last_eval_step = self._step
                     self.logger.log({**self.eval(), **self.common_metrics()}, "eval")
                     eval_next = False
 
@@ -108,7 +117,7 @@ class OnlineTrainer(Trainer):
                             "episode_success": info["success"].nanmean(),
                             **self.common_metrics(),
                         },
-                        "train",
+                        "eval",
                     )
                     self._ep_idx = self.buffer.add(tds)
 
@@ -117,10 +126,20 @@ class OnlineTrainer(Trainer):
 
             # Collect experience
             if self._step > self.cfg.seed_steps:
+                act_start = time()
                 action = self.agent.act(obs, t0=len(self._tds) == 1)
+                act_end = time()
+                act_duration += (act_end - act_start)
+                act_steps += self.cfg.num_envs
             else:
                 action = self.env.rand_act()
+
+            step_start = time()
             obs, reward, terminated, truncated, info = self.env.step(action)
+            step_end = time()
+            env_steps += self.cfg.num_envs
+            env_step_duration += (step_end - step_start)
+
             self._tds.append(self.to_td(obs, action, reward))
 
             # Update agent
@@ -130,12 +149,21 @@ class OnlineTrainer(Trainer):
                     print("Pretraining agent on seed data...")
                 else:
                     num_updates = max(1, self.cfg.num_envs // self.cfg.steps_per_update)
-                    # num_updates = max(1, self.cfg.num_envs // self.cfg.steps_per_update)
+
+                num_updates = 1
+                update_start = time()
                 for _ in range(num_updates):
                     _train_metrics = self.agent.update(self.buffer)
+                update_end = time()
 
-                self.logger.log({**_train_metrics, **self.common_metrics()}, "train")
+                if self._step > self.cfg.seed_steps:
+                    agent_update_duration += (update_end - update_start)
+                    agent_update_steps += num_updates
+
+                if self._step % 10 == 0:
+                    self.logger.log({**_train_metrics, **self.common_metrics()}, "train")
+                    print(f"env.step rate: {env_step_duration/env_steps:.6f}s, agent.update rate: {agent_update_duration/(agent_update_steps+1e-8):.6f}s, agent.act rate: {act_duration/(act_steps+1e-8):.6f}")
 
             self._step += self.cfg.num_envs
-
+        
         self.logger.finish(self.agent)

@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from common import math
 from common.scale import RunningScale
 from common.world_model import WorldModel
+from common.buffer import Buffer
 
 
 class TDMPC2:
@@ -300,7 +301,7 @@ class TDMPC2:
             next_z, pi, task, return_type="min", target=True
         )
 
-    def update(self, buffer):
+    def update(self, buffer: Buffer):
         """
         Main update function. Corresponds to one iteration of model learning.
 
