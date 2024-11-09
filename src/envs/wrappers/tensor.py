@@ -37,29 +37,23 @@ class TensorWrapper(gym.Wrapper):
 
     def reset(self, task_idx=None, **kwargs):
         if self._wrapped_vectorized:
-            obs = self.env.reset(**kwargs)
+            obs, info = self.env.reset(**kwargs)
         else:
-            obs = self.env.reset()
+            obs, info = self.env.reset()
         return self._obs_to_tensor(obs)
 
     def step(self, action, **kwargs):
         obs, reward, terminated, truncated, info = self.env.step(
             action.numpy(), **(kwargs if self._wrapped_vectorized else {})
         )
+        # `info` is already in vectorized format anyways
+        # info = {
+        #     key: torch.stack([torch.tensor(d[key]) for d in info])
+        #     for key in info[0].keys()  # type: ignore
+        # }
+        if "success" not in info.keys():
+            info["success"] = torch.zeros(len(terminated))  # type: ignore
 
-        if isinstance(info, tuple):
-            info = {
-                key: torch.stack([torch.tensor(d[key]) for d in info])
-                for key in info[0].keys()  # type: ignore
-            }
-            if "success" not in info.keys():
-                info["success"] = torch.zeros(len(terminated))  # type: ignore
-        else:
-            info = defaultdict(float, info)
-            info["success"] = float(info["success"])
-
-        info = defaultdict(float, info)
-        info["success"] = float(info["success"])
         return (
             self._obs_to_tensor(obs),
             torch.tensor(reward, dtype=torch.float32),

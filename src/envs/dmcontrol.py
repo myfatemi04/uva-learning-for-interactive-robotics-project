@@ -171,14 +171,14 @@ class TimeStepToGymWrapper(gym.Env):
         self.t = 0
         timestep = self.env.reset()
         obs = self._obs_to_array(timestep.observation)
-        info = defaultdict(float)
+        info = {}
 
         return (obs, info)
 
     def step(self, action):
         self.t += 1
         time_step = self.env.step(action)
-        info = defaultdict(float)
+        info = {"success": 0.0}
         return (
             self._obs_to_array(time_step.observation),
             time_step.reward,

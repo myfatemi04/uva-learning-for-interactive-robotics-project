@@ -1,11 +1,12 @@
 from tdmpc2 import TDMPC2
 from common.buffer import Buffer
+from common.logger import Logger
 
 
 class Trainer:
     """Base trainer class for TD-MPC2."""
 
-    def __init__(self, cfg, env, agent: TDMPC2, buffer: Buffer, logger):
+    def __init__(self, cfg, env, agent: TDMPC2, buffer: Buffer, logger: Logger):
         self.cfg = cfg
         self.env = env
         self.agent = agent
