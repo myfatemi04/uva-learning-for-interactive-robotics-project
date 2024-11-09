@@ -38,6 +38,7 @@ class OnlineTrainer(Trainer):
             if self.cfg.save_video:
                 self.logger.video.init(self.env, enabled=(i == 0))
             while not (terminated | truncated).any():
+                print("eval step", t)
                 action = self.agent.act(obs, t0=t == 0, eval_mode=True)
                 obs, reward, terminated, truncated, info = self.env.step(action)
                 ep_reward += reward
@@ -77,39 +78,38 @@ class OnlineTrainer(Trainer):
 
     def train(self):
         """Train a TD-MPC2 agent."""
-        train_metrics, terminated, truncated, eval_next = (
-            {},
-            torch.tensor(True),
-            torch.tensor(True),
-            True,
-        )
+        terminated = torch.tensor(True)
+        truncated = torch.tensor(True)
+        eval_next = True
+
+        self.cfg.seed_steps = 6000
         while self._step <= self.cfg.steps:
             print("Running step", self._step)
 
             # Evaluate agent periodically
-            if self._step % self.cfg.eval_freq == 0:
+            if self._step > 0 and self._step % self.cfg.eval_freq == 0:
                 eval_next = True
 
             # Reset environment
-            _done = terminated or truncated
+            _done = terminated | truncated
             if _done.any():
                 assert (
                     _done.all()
                 ), "Vectorized environments must reset all environments at once."
                 if eval_next:
-                    eval_metrics = self.eval()
-                    eval_metrics.update(self.common_metrics())
-                    self.logger.log(eval_metrics, "eval")
+                    self.logger.log({**self.eval(), **self.common_metrics()}, "eval")
                     eval_next = False
 
                 if self._step > 0:
                     tds = torch.cat(self._tds)
-                    train_metrics.update(
-                        episode_reward=tds["reward"].nansum(0).mean(),
-                        episode_success=info["success"].nanmean(),
+                    self.logger.log(
+                        {
+                            "episode_reward": tds["reward"].nansum(0).mean(),
+                            "episode_success": info["success"].nanmean(),
+                            **self.common_metrics(),
+                        },
+                        "train",
                     )
-                    train_metrics.update(self.common_metrics())
-                    self.logger.log(train_metrics, "train")
                     self._ep_idx = self.buffer.add(tds)
 
                 obs = self.env.reset()
@@ -130,9 +130,11 @@ class OnlineTrainer(Trainer):
                     print("Pretraining agent on seed data...")
                 else:
                     num_updates = max(1, self.cfg.num_envs // self.cfg.steps_per_update)
+                    # num_updates = max(1, self.cfg.num_envs // self.cfg.steps_per_update)
                 for _ in range(num_updates):
                     _train_metrics = self.agent.update(self.buffer)
-                train_metrics.update(_train_metrics)
+
+                self.logger.log({**_train_metrics, **self.common_metrics()}, "train")
 
             self._step += self.cfg.num_envs
 

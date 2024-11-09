@@ -51,6 +51,7 @@ class TensorWrapper(gym.Wrapper):
         #     key: torch.stack([torch.tensor(d[key]) for d in info])
         #     for key in info[0].keys()  # type: ignore
         # }
+        info = {key: torch.tensor(value) for (key, value) in info.items()}
         if "success" not in info.keys():
             info["success"] = torch.zeros(len(terminated))  # type: ignore
 
