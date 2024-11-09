@@ -164,13 +164,21 @@ class TimeStepToGymWrapper(gym.Env):
     def _obs_to_array(self, obs):
         return np.concatenate([v.flatten() for v in obs.values()])
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        assert seed is None, "Seed is not supported."
+        assert options is None, "Options are not supported."
+
         self.t = 0
-        return self._obs_to_array(self.env.reset().observation)
+        timestep = self.env.reset()
+        obs = self._obs_to_array(timestep.observation)
+        info = defaultdict(float)
+
+        return (obs, info)
 
     def step(self, action):
         self.t += 1
         time_step = self.env.step(action)
+        info = defaultdict(float)
         return (
             self._obs_to_array(time_step.observation),
             time_step.reward,
@@ -178,7 +186,7 @@ class TimeStepToGymWrapper(gym.Env):
             time_step.last(),
             # Truncated
             self.t == self.max_episode_steps,
-            defaultdict(float),
+            info,
         )
 
     def render(self, mode="rgb_array", width=384, height=384, camera_id=0):

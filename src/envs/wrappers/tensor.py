@@ -14,6 +14,7 @@ class TensorWrapper(gym.Wrapper):
         super().__init__(env)
 
         self._wrapped_vectorized = env.__class__.__name__ == "Vectorized"
+        self.max_episode_steps = env.max_episode_steps
 
     def rand_act(self):
         if self._wrapped_vectorized:
