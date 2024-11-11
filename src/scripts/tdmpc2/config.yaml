@@ -5,6 +5,7 @@
 task: dog-run
 obs: state
 num_envs: 10
+render_size: 64
 
 # evaluation
 checkpoint: ???

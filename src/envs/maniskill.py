@@ -71,7 +71,7 @@ def make_env(cfg):
         task_cfg["env"],
         obs_mode="state",
         control_mode=task_cfg["control_mode"],
-        render_camera_cfgs=dict(width=384, height=384),
+        render_camera_cfgs={"width": cfg.render_size, "height": cfg.render_size},
     )
     env = ManiSkillWrapper(env, cfg)
     env = TimeLimit(env, max_episode_steps=100)

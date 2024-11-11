@@ -43,7 +43,7 @@ class MyoSuiteWrapper(gym.Wrapper):
         ).copy()
 
 
-def make_env(cfg, render_size: int = 384):
+def make_env(cfg):
     """
     Make Myosuite environment.
     """
@@ -53,7 +53,7 @@ def make_env(cfg, render_size: int = 384):
     import myosuite
 
     env = gym.make(MYOSUITE_TASKS[cfg.task])
-    env = MyoSuiteWrapper(env, cfg, render_size)
+    env = MyoSuiteWrapper(env, cfg, render_size=cfg.render_size)
     env = TimeLimit(env, max_episode_steps=100)
     env.max_episode_steps = env._max_episode_steps
     return env

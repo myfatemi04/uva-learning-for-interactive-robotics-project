@@ -45,7 +45,7 @@ class MetaWorldWrapper(gym.Wrapper):
         ).copy()
 
 
-def make_env(cfg, render_size: int = 384):
+def make_env(cfg):
     """
     Make Meta-World environment.
     """
@@ -57,7 +57,7 @@ def make_env(cfg, render_size: int = 384):
         raise ValueError("Unknown task:", cfg.task)
     assert cfg.obs == "state", "This task only supports state observations."
     env = ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE[env_id](seed=cfg.seed)
-    env = MetaWorldWrapper(env, cfg, render_size)
+    env = MetaWorldWrapper(env, cfg, render_size=cfg.render_size)
     env = TimeLimit(env, max_episode_steps=100)
     env.max_episode_steps = env._max_episode_steps
     return env

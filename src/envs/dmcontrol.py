@@ -123,7 +123,7 @@ class ExtendedTimeStepWrapper(dm_env.Environment):
 
 
 class TimeStepToGymWrapper(gym.Env):
-    def __init__(self, env: dm_env.Environment, domain, task, render_size: int = 384):
+    def __init__(self, env: dm_env.Environment, domain, task, render_size: int):
         obs_shp = []
         for v in env.observation_spec().values():
             try:
@@ -222,5 +222,5 @@ def make_env(cfg):
     env = ActionRepeatWrapper(env, 2)
     env = action_scale.Wrapper(env, minimum=-1.0, maximum=1.0)
     env = ExtendedTimeStepWrapper(env)
-    env = TimeStepToGymWrapper(env, domain, task)
+    env = TimeStepToGymWrapper(env, domain, task, render_size=cfg.render_size)
     return env

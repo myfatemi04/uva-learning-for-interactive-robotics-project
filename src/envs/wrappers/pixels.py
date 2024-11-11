@@ -19,24 +19,36 @@ class PixelWrapper(gym.Wrapper):
             shape=(num_frames * 3, render_size, render_size),
             dtype=np.uint8,
         )
-        self._frames = deque([], maxlen=num_frames)
+        self.action_space = env.action_space
+        self._frames: deque[torch.Tensor] = deque([], maxlen=num_frames)
+        self.num_frames = num_frames
         self._render_size = render_size
-        self.max_episode_steps = env.max_episode_steps  # type: ignore
 
-    def _get_obs(self) -> torch.Tensor:
-        # Render as rgb_array
+    def _render_as_tensor(self) -> torch.Tensor:
+        # Render as rgb_array.
         frame: np.ndarray = self.env.render()  # type: ignore
-        frame = frame.transpose(2, 0, 1)
-        self._frames.append(frame)
-        return torch.from_numpy(np.concatenate(self._frames))
+        frame = frame.transpose(2, 0, 1).copy()
+        return torch.from_numpy(frame)
 
     def reset(self, seed=None, options=None) -> tuple[torch.Tensor, dict]:
-        assert seed is None, options is None
-        self.env.reset()
-        self._frames.clear()
-        obs = self._get_obs()
-        return obs, {}
+        self.env.reset(seed=seed, options=options)
+
+        # Populate the buffer of frames.
+        frame = self._render_as_tensor()
+        for _ in range(self.num_frames):
+            self._frames.append(frame)
+
+        # Concatenate the most recent frames to create an observation.
+        buf = torch.cat([*self._frames], dim=0)
+        return buf, {}
 
     def step(self, action):
         _original_obs, reward, terminated, truncated, info = self.env.step(action)
-        return self._get_obs(), reward, terminated, truncated, info
+
+        # Render the environment and add to frame buffer.
+        frame = self._render_as_tensor()
+        self._frames.append(frame)
+
+        # Concatenate the most recent frames to create an observation.
+        buf = torch.cat([*self._frames], dim=0)
+        return buf, reward, terminated, truncated, info
