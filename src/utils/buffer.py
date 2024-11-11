@@ -123,6 +123,8 @@ class Buffer:
 
     def sample(self):
         """Sample a batch of subsequences from the buffer."""
+
+        # Note: When sampling using TensorDict, the broadcasted operations only apply to the batch dimensions.
         td = self._buffer.sample().view(-1, self._horizon + 1).permute(1, 0)
         return self._prepare_batch(td)
 

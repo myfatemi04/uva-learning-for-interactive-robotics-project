@@ -89,6 +89,9 @@ class OnlineTrainer(Trainer):
         agent_update_steps = 0
         act_duration = 0
         act_steps = 0
+        has_content = False
+
+        save_every = self.cfg.num_envs * 4000
 
         self.cfg.seed_steps = 6000 # * self.cfg.num_envs
         while self._step <= self.cfg.steps:
@@ -120,6 +123,7 @@ class OnlineTrainer(Trainer):
                         "eval",
                     )
                     self._ep_idx = self.buffer.add(tds)
+                    has_content = True
 
                 obs = self.env.reset()
                 self._tds = [self.to_td(obs)]
@@ -143,7 +147,7 @@ class OnlineTrainer(Trainer):
             self._tds.append(self.to_td(obs, action, reward))
 
             # Update agent
-            if self._step >= self.cfg.seed_steps:
+            if self._step >= self.cfg.seed_steps and has_content:
                 if self._step == self.cfg.seed_steps:
                     num_updates = self.cfg.seed_steps // self.cfg.steps_per_update
                     print("Pretraining agent on seed data...")
@@ -165,5 +169,8 @@ class OnlineTrainer(Trainer):
                     print(f"env.step rate: {env_step_duration/env_steps:.6f}s, agent.update rate: {agent_update_duration/(agent_update_steps+1e-8):.6f}s, agent.act rate: {act_duration/(act_steps+1e-8):.6f}")
 
             self._step += self.cfg.num_envs
+
+            if self._step > 0 and self._step % save_every == 0:
+                self.agent.save(self.logger.model_dir / f"step_{self._step}.pt")
         
         self.logger.finish(self.agent)

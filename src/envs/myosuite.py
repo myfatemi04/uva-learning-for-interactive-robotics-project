@@ -18,17 +18,18 @@ MYOSUITE_TASKS = {
 
 
 class MyoSuiteWrapper(gym.Wrapper):
-    def __init__(self, env, cfg):
+    def __init__(self, env: gym.Env, cfg, render_size: int):
         super().__init__(env)
         self.env = env
         self.cfg = cfg
         self.camera_id = "hand_side_inter"
+        self.render_size = render_size
 
     def step(self, action):
-        obs, reward, _, info = self.env.step(action.copy())
+        obs, reward, terminated, truncated, info = self.env.step(action.copy())
         obs = obs.astype(np.float32)
         info["success"] = info["solved"]
-        return obs, reward, False, info
+        return obs, reward, False, False, info
 
     @property
     def unwrapped(self):
@@ -36,11 +37,13 @@ class MyoSuiteWrapper(gym.Wrapper):
 
     def render(self, *args, **kwargs):
         return self.env.sim.renderer.render_offscreen(
-            width=384, height=384, camera_id=self.camera_id
+            width=self.render_size,
+            height=self.render_size,
+            camera_id=self.camera_id,
         ).copy()
 
 
-def make_env(cfg):
+def make_env(cfg, render_size: int = 384):
     """
     Make Myosuite environment.
     """
@@ -50,7 +53,7 @@ def make_env(cfg):
     import myosuite
 
     env = gym.make(MYOSUITE_TASKS[cfg.task])
-    env = MyoSuiteWrapper(env, cfg)
+    env = MyoSuiteWrapper(env, cfg, render_size)
     env = TimeLimit(env, max_episode_steps=100)
     env.max_episode_steps = env._max_episode_steps
     return env

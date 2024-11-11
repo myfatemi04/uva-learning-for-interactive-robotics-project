@@ -4,7 +4,7 @@ from typing import Any, Callable
 import numpy as np
 import torch
 from gymnasium import Env
-from gymnasium.vector import AsyncVectorEnv, SyncVectorEnv
+from gymnasium.vector import AsyncVectorEnv
 
 
 class Vectorized(Env):
@@ -23,7 +23,7 @@ class Vectorized(Env):
             return env_fn(_cfg)
 
         print(f"Creating {cfg.num_envs} environments...")
-        self.env = SyncVectorEnv([make for _ in range(cfg.num_envs)])
+        self.env = AsyncVectorEnv([make for _ in range(cfg.num_envs)])
         env = make()
         self.observation_space = env.observation_space
         self.action_space = env.action_space

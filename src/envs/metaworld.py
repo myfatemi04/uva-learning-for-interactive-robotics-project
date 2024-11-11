@@ -6,11 +6,17 @@ from metaworld.envs import ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE
 
 
 class MetaWorldWrapper(gym.Wrapper):
-    def __init__(self, env, cfg):
+    def __init__(
+        self,
+        env: gym.Env,
+        cfg,
+        render_size: int,
+    ):
         super().__init__(env)
         self.env = env
         self.cfg = cfg
         self.camera_name = "corner2"
+        self.render_size = render_size
         self.env.model.cam_pos[2] = [0.75, 0.075, 0.7]
         self.env._freeze_rand_vec = False
 
@@ -22,10 +28,10 @@ class MetaWorldWrapper(gym.Wrapper):
     def step(self, action):
         reward = 0
         for _ in range(2):
-            obs, r, _, info = self.env.step(action.copy())
+            obs, r, terminated, truncated, info = self.env.step(action.copy())
             reward += r
         obs = obs.astype(np.float32)
-        return obs, reward, False, info
+        return obs, reward, terminated, truncated, info
 
     @property
     def unwrapped(self):
@@ -33,11 +39,13 @@ class MetaWorldWrapper(gym.Wrapper):
 
     def render(self, *args, **kwargs):
         return self.env.render(
-            offscreen=True, resolution=(384, 384), camera_name=self.camera_name
+            offscreen=True,
+            resolution=(render_size, render_size),
+            camera_name=self.camera_name,
         ).copy()
 
 
-def make_env(cfg):
+def make_env(cfg, render_size: int = 384):
     """
     Make Meta-World environment.
     """
@@ -49,7 +57,7 @@ def make_env(cfg):
         raise ValueError("Unknown task:", cfg.task)
     assert cfg.obs == "state", "This task only supports state observations."
     env = ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE[env_id](seed=cfg.seed)
-    env = MetaWorldWrapper(env, cfg)
+    env = MetaWorldWrapper(env, cfg, render_size)
     env = TimeLimit(env, max_episode_steps=100)
     env.max_episode_steps = env._max_episode_steps
     return env
