@@ -1,6 +1,5 @@
 from time import time
 
-import numpy as np
 import torch
 from tensordict.tensordict import TensorDict
 
@@ -15,6 +14,7 @@ class OnlineTrainer(Trainer):
         self._step = 0
         self._ep_idx = 0
         self._start_time = time()
+        self._tds: list[TensorDict] = []
 
     def common_metrics(self):
         """Return a dictionary of current metrics."""
@@ -36,6 +36,7 @@ class OnlineTrainer(Trainer):
                 0,
             )
             if self.cfg.save_video:
+                assert self.logger.video
                 self.logger.video.init(self.env, enabled=(i == 0))
             while not (terminated | truncated).any():
                 print("eval step", t)
@@ -44,12 +45,14 @@ class OnlineTrainer(Trainer):
                 ep_reward += reward
                 t += 1
                 if self.cfg.save_video:
+                    assert self.logger.video
                     self.logger.video.record(self.env)
             assert (
                 terminated | truncated
             ).all(), "Vectorized environments must reset all environments at once."
             ep_rewards.append(ep_reward)
             if self.cfg.save_video:
+                assert self.logger.video
                 self.logger.video.save(self._step)
         return dict(
             episode_reward=torch.cat(ep_rewards).mean(),
@@ -93,11 +96,8 @@ class OnlineTrainer(Trainer):
 
         save_every = self.cfg.num_envs * 4000
 
-        self.cfg.seed_steps = 6000 # * self.cfg.num_envs
         while self._step <= self.cfg.steps:
             # Evaluate agent periodically
-            # if self._step > 0 and (self._step - last_eval_step) > self.cfg.eval_freq:
-            #     eval_next = True
             if self._step % self.cfg.eval_freq == 0:
                 eval_next = True
 
@@ -108,12 +108,11 @@ class OnlineTrainer(Trainer):
                     _done.all()
                 ), "Vectorized environments must reset all environments at once."
                 if eval_next:
-                    last_eval_step = self._step
                     self.logger.log({**self.eval(), **self.common_metrics()}, "eval")
                     eval_next = False
 
                 if self._step > 0:
-                    tds = torch.cat(self._tds)
+                    tds: TensorDict = torch.cat(self._tds)  # type: ignore
                     self.logger.log(
                         {
                             "episode_reward": tds["reward"].nansum(0).mean(),
@@ -133,7 +132,7 @@ class OnlineTrainer(Trainer):
                 act_start = time()
                 action = self.agent.act(obs, t0=len(self._tds) == 1)
                 act_end = time()
-                act_duration += (act_end - act_start)
+                act_duration += act_end - act_start
                 act_steps += self.cfg.num_envs
             else:
                 action = self.env.rand_act()
@@ -142,7 +141,7 @@ class OnlineTrainer(Trainer):
             obs, reward, terminated, truncated, info = self.env.step(action)
             step_end = time()
             env_steps += self.cfg.num_envs
-            env_step_duration += (step_end - step_start)
+            env_step_duration += step_end - step_start
 
             self._tds.append(self.to_td(obs, action, reward))
 
@@ -161,16 +160,20 @@ class OnlineTrainer(Trainer):
                 update_end = time()
 
                 if self._step > self.cfg.seed_steps:
-                    agent_update_duration += (update_end - update_start)
+                    agent_update_duration += update_end - update_start
                     agent_update_steps += num_updates
 
                 if self._step % 10 == 0:
-                    self.logger.log({**_train_metrics, **self.common_metrics()}, "train")
-                    print(f"env.step rate: {env_step_duration/env_steps:.6f}s, agent.update rate: {agent_update_duration/(agent_update_steps+1e-8):.6f}s, agent.act rate: {act_duration/(act_steps+1e-8):.6f}")
+                    self.logger.log(
+                        {**_train_metrics, **self.common_metrics()}, "train"
+                    )
+                    print(
+                        f"env.step rate: {env_step_duration/env_steps:.6f}s, agent.update rate: {agent_update_duration/(agent_update_steps+1e-8):.6f}s, agent.act rate: {act_duration/(act_steps+1e-8):.6f}"
+                    )
 
             self._step += self.cfg.num_envs
 
             if self._step > 0 and self._step % save_every == 0:
                 self.agent.save(self.logger.model_dir / f"step_{self._step}.pt")
-        
+
         self.logger.finish(self.agent)

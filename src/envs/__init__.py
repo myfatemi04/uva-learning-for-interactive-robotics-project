@@ -1,13 +1,12 @@
-from copy import deepcopy
-import traceback
 import warnings
+from copy import deepcopy
 
 import gymnasium as gym
+from gymnasium.vector import AsyncVectorEnv
 
 from envs.wrappers.multitask import MultitaskWrapper
 from envs.wrappers.pixels import PixelWrapper
-from envs.wrappers.tensor import TensorWrapper
-from envs.wrappers.vectorized import Vectorized
+from envs.wrappers.tensor import Tensorize
 
 
 def missing_dependencies(task):
@@ -18,8 +17,7 @@ def missing_dependencies(task):
 
 try:
     from envs.dmcontrol import make_env as make_dm_control_env
-except Exception as e:
-    traceback.print_exc(e)
+except:
     make_dm_control_env = missing_dependencies
 try:
     from envs.maniskill import make_env as make_maniskill_env
@@ -33,6 +31,28 @@ try:
     from envs.myosuite import make_env as make_myosuite_env
 except:
     make_myosuite_env = missing_dependencies
+
+
+def is_dm_control_env(task: str):
+    from dm_control.suite import TASKS_BY_DOMAIN
+
+    domain, task = task.replace("-", "_").split("_", 1)
+
+    return domain in TASKS_BY_DOMAIN and task in TASKS_BY_DOMAIN[domain]
+
+
+def is_maniskill_env(task: str):
+    from envs.maniskill import MANISKILL_TASKS
+
+    return task in MANISKILL_TASKS
+
+
+def is_metaworld_env(task: str):
+    return task.startswith("mw-")
+
+
+def is_myosuite_env(task: str):
+    return task.startswith("myo-")
 
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -68,29 +88,36 @@ def make_env(cfg):
         env = make_multitask_env(cfg)
 
     else:
-        env = None
-        for fn in [
-            make_dm_control_env,
-            make_maniskill_env,
-            make_metaworld_env,
-            make_myosuite_env,
-        ]:
-            try:
-                env = fn(cfg)
-                break
-            except ValueError:
-                pass
-        if env is None:
+        if is_dm_control_env(cfg.task):
+            make_env = make_dm_control_env
+            max_steps = 500
+        elif is_maniskill_env(cfg.task):
+            make_env = make_maniskill_env
+            max_steps = 100
+        elif is_metaworld_env(cfg.task):
+            make_env = make_metaworld_env
+            max_steps = 100
+        elif is_myosuite_env(cfg.task):
+            make_env = make_myosuite_env
+            max_steps = 100
+        else:
+            raise ValueError(f"Unknown task: {cfg.task}")
+
+        try:
+            env = make_env(cfg)
+        except ValueError:
             raise ValueError(
                 f'Failed to make environment "{cfg.task}": please verify that dependencies are installed and that the task exists.'
             )
-        # assert (
-        #     cfg.num_envs == 1 or cfg.get("obs", "state") == "state"
-        # ), "Vectorized environments only support state observations."
-        env = Vectorized(cfg, fn)
-        env = TensorWrapper(env)
-    if cfg.get("obs", "state") == "rgb":
-        env = PixelWrapper(cfg, env)
+
+        if cfg.get("obs", "state") == "rgb":
+            wrapper = PixelWrapper
+        else:
+            wrapper = Tensorize
+
+        env = AsyncVectorEnv(
+            [lambda: wrapper(make_env(cfg)) for _ in range(cfg.num_envs)]
+        )
 
     if isinstance(env.observation_space, gym.spaces.Dict):
         cfg.obs_shape = {k: v.shape for k, v in env.observation_space.spaces.items()}
@@ -99,7 +126,8 @@ def make_env(cfg):
     else:
         raise NotImplementedError("Unknown observation space:", env.observation_space)
 
+    assert env.action_space.shape is not None
     cfg.action_dim = env.action_space.shape[0]
-    cfg.episode_length = env.max_episode_steps
+    cfg.episode_length = max_steps
     cfg.seed_steps = max(1000, 5 * cfg.episode_length) * cfg.num_envs
     return env

@@ -1,11 +1,28 @@
-from collections import defaultdict
+from typing import Union
 
 import gymnasium as gym
-import numpy as np
 import torch
+from tensordict import TensorDict
 
 
-class TensorWrapper(gym.Wrapper):
+Tensorish = Union[torch.Tensor, TensorDict]
+
+
+def _try_f32_tensor(x) -> torch.Tensor:
+    x = torch.from_numpy(x)
+    if x.dtype == torch.float64:
+        x = x.float()
+    return x
+
+
+def _obs_to_tensor(obs) -> Tensorish:
+    if isinstance(obs, dict):
+        return TensorDict({k: _try_f32_tensor(v) for k, v in obs.items()})
+    else:
+        return _try_f32_tensor(obs)
+
+
+class Tensorize(gym.Wrapper):
     """
     Wrapper for converting numpy arrays to torch tensors.
     """
@@ -14,49 +31,25 @@ class TensorWrapper(gym.Wrapper):
         super().__init__(env)
 
         self._wrapped_vectorized = env.__class__.__name__ == "Vectorized"
-        self.max_episode_steps = env.max_episode_steps
 
-    def rand_act(self):
-        if self._wrapped_vectorized:
-            return self.env.rand_act()
-        return torch.from_numpy(self.action_space.sample().astype(np.float32))
+    def reset(self, **kwargs) -> tuple[Tensorish, dict]:
+        obs, info = self.env.reset(**kwargs)
+        return _obs_to_tensor(obs), info
 
-    def _try_f32_tensor(self, x):
-        x = torch.from_numpy(x)
-        if x.dtype == torch.float64:
-            x = x.float()
-        return x
-
-    def _obs_to_tensor(self, obs):
-        if isinstance(obs, dict):
-            for k in obs.keys():
-                obs[k] = self._try_f32_tensor(obs[k])
-        else:
-            obs = self._try_f32_tensor(obs)
-        return obs
-
-    def reset(self, task_idx=None, **kwargs):
-        if self._wrapped_vectorized:
-            obs, info = self.env.reset(**kwargs)
-        else:
-            obs, info = self.env.reset()
-        return self._obs_to_tensor(obs)
-
-    def step(self, action, **kwargs):
+    def step(self, action: torch.Tensor, **kwargs):
         obs, reward, terminated, truncated, info = self.env.step(
             action.numpy(), **(kwargs if self._wrapped_vectorized else {})
         )
-        # `info` is already in vectorized format anyways
-        # info = {
-        #     key: torch.stack([torch.tensor(d[key]) for d in info])
-        #     for key in info[0].keys()  # type: ignore
-        # }
+
         info = {key: torch.tensor(value) for (key, value) in info.items()}
         if "success" not in info.keys():
-            info["success"] = torch.zeros(len(terminated))  # type: ignore
+            if type(terminated) is not bool:
+                info["success"] = torch.zeros(len(terminated))
+            else:
+                info["success"] = torch.tensor(0)
 
         return (
-            self._obs_to_tensor(obs),
+            _obs_to_tensor(obs),
             torch.tensor(reward, dtype=torch.float32),
             terminated,
             truncated,

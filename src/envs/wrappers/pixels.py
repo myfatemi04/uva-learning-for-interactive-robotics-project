@@ -10,9 +10,8 @@ class PixelWrapper(gym.Wrapper):
     Wrapper for pixel observations. Compatible with DMControl environments.
     """
 
-    def __init__(self, cfg, env: gym.Env, num_frames=3, render_size=64):
+    def __init__(self, env: gym.Env, num_frames=3, render_size=64):
         super().__init__(env)
-        self.cfg = cfg
         self.env = env
         self.observation_space = gym.spaces.Box(
             low=0,
@@ -26,12 +25,13 @@ class PixelWrapper(gym.Wrapper):
 
     def _get_obs(self):
         # Render as rgb_array
-        frame: np.ndarray = self.env.render()  # type: ignore
+        frame: np.ndarray = self.env.render()
         frame = frame.transpose(2, 0, 1)
         self._frames.append(frame)
         return torch.from_numpy(np.concatenate(self._frames))
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        assert seed is None, options is None
         self.env.reset()
         self._frames.clear()
         obs = self._get_obs()
