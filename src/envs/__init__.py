@@ -1,8 +1,9 @@
 import warnings
 from copy import deepcopy
+from functools import partial
 
 import gymnasium as gym
-from gymnasium.vector import AsyncVectorEnv
+from gymnasium.vector import SyncVectorEnv
 
 from envs.wrappers.multitask import MultitaskWrapper
 from envs.wrappers.pixels import PixelWrapper
@@ -111,11 +112,11 @@ def make_env(cfg):
             )
 
         if cfg.get("obs", "state") == "rgb":
-            wrapper = PixelWrapper
+            wrapper = partial(PixelWrapper, num_frames=3, render_size=64)
         else:
             wrapper = Tensorize
 
-        env = AsyncVectorEnv(
+        env = SyncVectorEnv(
             [lambda: wrapper(make_env(cfg)) for _ in range(cfg.num_envs)]
         )
 

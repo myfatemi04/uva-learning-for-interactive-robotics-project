@@ -29,7 +29,7 @@ class OnlineTrainer(Trainer):
         """Evaluate a TD-MPC2 agent."""
         ep_rewards = []
         for i in range(self.cfg.eval_episodes // self.cfg.num_envs):
-            obs = self.env.reset()
+            obs, info = self.env.reset()
             terminated = torch.zeros(self.cfg.num_envs, dtype=torch.bool)
             truncated = torch.zeros(self.cfg.num_envs, dtype=torch.bool)
             ep_reward = 0
