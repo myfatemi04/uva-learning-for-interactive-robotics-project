@@ -1,12 +1,21 @@
-from tdmpc2 import TDMPC2
+import gymnasium as gym
+
 from common.buffer import Buffer
 from common.logger import Logger
+from tdmpc2 import TDMPC2
 
 
 class Trainer:
     """Base trainer class for TD-MPC2."""
 
-    def __init__(self, cfg, env, agent: TDMPC2, buffer: Buffer, logger: Logger):
+    def __init__(
+        self,
+        cfg,
+        env: gym.vector.VectorEnv,
+        agent: TDMPC2,
+        buffer: Buffer,
+        logger: Logger,
+    ):
         self.cfg = cfg
         self.env = env
         self.agent = agent

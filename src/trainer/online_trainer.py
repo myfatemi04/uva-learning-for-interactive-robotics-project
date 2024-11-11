@@ -1,4 +1,5 @@
 from time import time
+from typing import Union
 
 import torch
 from tensordict.tensordict import TensorDict
@@ -28,18 +29,17 @@ class OnlineTrainer(Trainer):
         """Evaluate a TD-MPC2 agent."""
         ep_rewards = []
         for i in range(self.cfg.eval_episodes // self.cfg.num_envs):
-            obs, terminated, truncated, ep_reward, t = (
-                self.env.reset(),
-                torch.tensor(False),
-                torch.tensor(False),
-                0,
-                0,
-            )
+            obs = self.env.reset()
+            terminated = torch.zeros(self.cfg.num_envs, dtype=torch.bool)
+            truncated = torch.zeros(self.cfg.num_envs, dtype=torch.bool)
+            ep_reward = 0
+            t = 0
+
             if self.cfg.save_video:
                 assert self.logger.video
                 self.logger.video.init(self.env, enabled=(i == 0))
+
             while not (terminated | truncated).any():
-                print("eval step", t)
                 action = self.agent.act(obs, t0=t == 0, eval_mode=True)
                 obs, reward, terminated, truncated, info = self.env.step(action)
                 ep_reward += reward
@@ -47,34 +47,38 @@ class OnlineTrainer(Trainer):
                 if self.cfg.save_video:
                     assert self.logger.video
                     self.logger.video.record(self.env)
+
             assert (
                 terminated | truncated
             ).all(), "Vectorized environments must reset all environments at once."
+
             ep_rewards.append(ep_reward)
             if self.cfg.save_video:
                 assert self.logger.video
                 self.logger.video.save(self._step)
+
         return dict(
             episode_reward=torch.cat(ep_rewards).mean(),
             episode_success=info["success"].mean(),
         )
 
-    def to_td(self, obs, action=None, reward=None):
+    def to_td(self, obs: Union[TensorDict, torch.Tensor], action=None, reward=None):
         """Creates a TensorDict for a new episode."""
         if isinstance(obs, dict):
             obs = TensorDict(obs, batch_size=(), device="cpu")
         else:
             obs = obs.unsqueeze(0).cpu()
         if action is None:
-            action = torch.full_like(self.env.rand_act(), float("nan"))
+            assert self.env.action_space.shape is not None
+            action = torch.full(self.env.action_space.shape, float("nan"))
         if reward is None:
             reward = torch.tensor(float("nan")).repeat(self.cfg.num_envs)
         td = TensorDict(
-            dict(
-                obs=obs,
-                action=action.unsqueeze(0),
-                reward=reward.unsqueeze(0),
-            ),
+            {
+                "obs": obs,  # type: ignore
+                "action": action.unsqueeze(0),
+                "reward": reward.unsqueeze(0),
+            },
             batch_size=(1, self.cfg.num_envs),
         )
         return td
@@ -124,7 +128,7 @@ class OnlineTrainer(Trainer):
                     self._ep_idx = self.buffer.add(tds)
                     has_content = True
 
-                obs = self.env.reset()
+                obs, info = self.env.reset()
                 self._tds = [self.to_td(obs)]
 
             # Collect experience
@@ -135,7 +139,7 @@ class OnlineTrainer(Trainer):
                 act_duration += act_end - act_start
                 act_steps += self.cfg.num_envs
             else:
-                action = self.env.rand_act()
+                action = torch.tensor(self.env.action_space.sample())
 
             step_start = time()
             obs, reward, terminated, truncated, info = self.env.step(action)
