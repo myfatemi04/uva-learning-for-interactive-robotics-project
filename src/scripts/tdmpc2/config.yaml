@@ -1,10 +1,13 @@
 # defaults:
 #     - override hydra/launcher: submitit_local
 
+# for measuring the time of each component (env.step, agent.update, agent.act).
+print_profile: false
+
 # environment
 task: dog-run
 obs: state
-num_envs: 10
+num_envs: 32
 render_size: 64
 
 # evaluation

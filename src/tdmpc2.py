@@ -358,7 +358,7 @@ class TDMPC2:
         # However, we already implicitly do this with the F.mse_loss, so we can skip it.
         pairs = torch.cat((z_without_task_embedding[:-1], z_without_task_embedding[1:]), dim=-1)
         inferred_actions = self.model._infer_action(pairs)
-        action_inference_loss = F.mse_loss(actions, inferred_actions)
+        action_inference_loss = F.mse_loss(action, inferred_actions)
 
         """
         ^^^ END "new approach" code. (Except for the part of adding the action_inference_loss to the total loss).
@@ -432,6 +432,7 @@ class TDMPC2:
         # Return training statistics
         self.model.eval()
         return {
+            "action_inference_loss": float(action_inference_loss.mean().item()),
             "consistency_loss": float(consistency_loss.mean().item()),
             "reward_loss": float(reward_loss.mean().item()),
             "value_loss": float(value_loss.mean().item()),

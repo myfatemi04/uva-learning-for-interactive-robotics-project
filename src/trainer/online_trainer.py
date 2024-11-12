@@ -171,9 +171,11 @@ class OnlineTrainer(Trainer):
                     self.logger.log(
                         {**_train_metrics, **self.common_metrics()}, "train"
                     )
-                    print(
-                        f"env.step rate: {env_step_duration/env_steps:.6f}s, agent.update rate: {agent_update_duration/(agent_update_steps+1e-8):.6f}s, agent.act rate: {act_duration/(act_steps+1e-8):.6f}"
-                    )
+
+                    if self.cfg.print_profile:
+                        print(
+                            f"env.step rate: {env_step_duration/env_steps:.6f}s, agent.update rate: {agent_update_duration/(agent_update_steps+1e-8):.6f}s, agent.act rate: {act_duration/(act_steps+1e-8):.6f}"
+                        )
 
             self._step += self.cfg.num_envs
 
