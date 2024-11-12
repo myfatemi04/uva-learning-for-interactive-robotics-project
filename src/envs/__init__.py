@@ -1,3 +1,4 @@
+from typing import Callable
 import warnings
 from copy import deepcopy
 from functools import partial
@@ -106,29 +107,33 @@ def make_env(cfg):
 
         try:
             env = make_env(cfg)
+            print("make_env env action space shape:", env.action_space.shape)
         except ValueError:
             raise ValueError(
                 f'Failed to make environment "{cfg.task}": please verify that dependencies are installed and that the task exists.'
             )
 
         if cfg.get("obs", "state") == "rgb":
-            wrapper = partial(PixelWrapper, num_frames=3, render_size=64)
+            make_env_ = lambda: PixelWrapper(
+                make_env(cfg), num_frames=3, render_size=64
+            )
         else:
-            wrapper = Tensorize
+            make_env_ = lambda: make_env(cfg)
 
-        env = SyncVectorEnv(
-            [lambda: wrapper(make_env(cfg)) for _ in range(cfg.num_envs)]
-        )
+        env = Tensorize(SyncVectorEnv([make_env_ for _ in range(cfg.num_envs)]))
 
+    # Remove the "vectorization" dimension for the observation space by doing ".shape[1:]".
     if isinstance(env.observation_space, gym.spaces.Dict):
-        cfg.obs_shape = {k: v.shape for k, v in env.observation_space.spaces.items()}
+        cfg.obs_shape = {k: v.shape[1:] for k, v in env.observation_space.spaces.items()}
     elif isinstance(env.observation_space, gym.spaces.Box):
-        cfg.obs_shape = {cfg.get("obs", "state"): env.observation_space.shape}
+        cfg.obs_shape = {cfg.get("obs", "state"): env.observation_space.shape[1:]}
     else:
         raise NotImplementedError("Unknown observation space:", env.observation_space)
 
     assert env.action_space.shape is not None
-    cfg.action_dim = env.action_space.shape[0]
+
+    # Also remove the "vectorization" dimension for the action space by selecting index 1 instead of 0.
+    cfg.action_dim = env.action_space.shape[1]
     cfg.episode_length = max_steps
     cfg.seed_steps = max(1000, 5 * cfg.episode_length) * cfg.num_envs
     return env

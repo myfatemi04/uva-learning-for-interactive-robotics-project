@@ -27,10 +27,15 @@ class Tensorize(gym.Wrapper):
     Wrapper for converting numpy arrays to torch tensors.
     """
 
-    def __init__(self, env: gym.Env):
-        super().__init__(env)
+    def __init__(self, env: gym.vector.VectorEnv):
+        # super().__init__(env)  # type: ignore
+        self.env = env
 
-        self._wrapped_vectorized = env.__class__.__name__ == "Vectorized"
+        self._action_space = None  #: spaces.Space[WrapperActType] | None = None
+        self._observation_space = None  #: spaces.Space[WrapperObsType] | None = None
+        self._metadata = None  #: dict[str, Any] | None = None
+
+        self._cached_spec = None  #: EnvSpec | None = None
 
     def reset(self, **kwargs) -> tuple[Tensorish, dict]:
         obs, info = self.env.reset(**kwargs)
@@ -38,7 +43,7 @@ class Tensorize(gym.Wrapper):
 
     def step(self, action: torch.Tensor, **kwargs):
         obs, reward, terminated, truncated, info = self.env.step(
-            action.numpy(), **(kwargs if self._wrapped_vectorized else {})
+            action.numpy(), **kwargs
         )
 
         info = {key: torch.tensor(value) for (key, value) in info.items()}

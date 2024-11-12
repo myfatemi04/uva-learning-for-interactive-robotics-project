@@ -311,8 +311,59 @@ class TDMPC2:
         Returns:
                 dict: Dictionary of training statistics.
         """
+
+        # The "sample" is a list of self.cfg.horizon+1 states and self.cfg.horizon actions.
         obs, action, reward, task = buffer.sample()
 
+        """
+        New approach: also incorporates the ability to predict which action was taken.
+        This encourages the agent to select features that are relevant to its actions.
+        Requires the following config variables to be set:
+        - action_inference_coef
+        vvvvv
+        """
+        z_encoded_all = self.model.encode(obs, task)
+        next_z = z_encoded_all[1:]
+        td_targets = self._td_target(next_z, reward, task)
+
+        # Prepare for update
+        self.optim.zero_grad(set_to_none=True)
+        self.model.train()
+
+        # Latent rollout
+        zs = torch.empty(
+            self.cfg.horizon + 1,
+            self.cfg.batch_size,
+            self.cfg.latent_dim,
+            device=self.device,
+        )
+        z = z_encoded_all[0]
+        zs[0] = z
+        consistency_loss = 0
+        for t in range(self.cfg.horizon):
+            z = self.model.next(z, action[t], task)
+            consistency_loss += F.mse_loss(z, next_z[t]) * self.cfg.rho**t
+            zs[t + 1] = z
+
+        # We select the components of `z` that exclude the task embedding.
+        # See WorldModel#encode.
+        if self.cfg.task_dim > 0:
+            z_without_task_embedding = z_encoded_all[..., :-self.cfg.task_dim]
+        else:
+            z_without_task_embedding = z_encoded_all
+
+        # Assumes that the shape is [horizon, batch, latent_dim].
+        # Concatenates to create [state_before state_after].
+        # The other losses get normalized by self.cfg.horizon (e.g. line ~400).
+        # However, we already implicitly do this with the F.mse_loss, so we can skip it.
+        pairs = torch.cat((z_without_task_embedding[:-1], z_without_task_embedding[1:]), dim=-1)
+        inferred_actions = self.model._infer_action(pairs)
+        action_inference_loss = F.mse_loss(actions, inferred_actions)
+
+        """
+        ^^^ END "new approach" code. (Except for the part of adding the action_inference_loss to the total loss).
+        
+        Original 'consistency loss' approach.
         # Compute targets
         with torch.no_grad():
             next_z = self.model.encode(obs[1:], task)
@@ -336,6 +387,7 @@ class TDMPC2:
             z = self.model.next(z, action[t], task)
             consistency_loss += F.mse_loss(z, next_z[t]) * self.cfg.rho**t
             zs[t + 1] = z
+        """
 
         # Predictions
         _zs = zs[:-1]
@@ -361,6 +413,7 @@ class TDMPC2:
             self.cfg.consistency_coef * consistency_loss
             + self.cfg.reward_coef * reward_loss
             + self.cfg.value_coef * value_loss
+            + self.cfg.action_inference_coef * action_inference_loss
         )
 
         # Update model

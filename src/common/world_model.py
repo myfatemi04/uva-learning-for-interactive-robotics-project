@@ -47,6 +47,12 @@ class WorldModel(nn.Module):
                 for _ in range(cfg.num_q)
             ]
         )
+        self._infer_action = layers.mlp(
+            cfg.latent_dim * 2,
+            # Hidden size that all other parts of the model use
+            2 * [cfg.mlp_dim],
+            cfg.action_dim,
+        )
         self.apply(init.weight_init)
         init.zero_([self._reward[-1].weight, self._Qs.params[-2]])
         self._target_Qs = deepcopy(self._Qs).requires_grad_(False)
