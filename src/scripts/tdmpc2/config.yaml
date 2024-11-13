@@ -3,6 +3,7 @@
 
 # for measuring the time of each component (env.step, agent.update, agent.act).
 print_profile: false
+wandb_name: ???
 
 # environment
 task: dog-run
@@ -12,7 +13,7 @@ render_size: 64
 
 # evaluation
 checkpoint: ???
-eval_episodes: 10
+eval_episodes: 32
 eval_freq: 50000
 
 # training
