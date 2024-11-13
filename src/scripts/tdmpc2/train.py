@@ -44,7 +44,7 @@ def train(cfg: dict):
     """
     assert torch.cuda.is_available()
     assert cfg.steps > 0, "Must train for at least 1 step."
-    assert (cfg.num_envs >= cfg.eval_episodes) and (
+    assert (cfg.eval_episodes >= cfg.num_envs) and (
         cfg.eval_episodes % cfg.num_envs == 0
     ), "Number of eval episodes must be divisible by the number of envs."
 
