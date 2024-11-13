@@ -323,7 +323,7 @@ class TDMPC2:
         vvvvv
         """
         z_encoded_all = self.model.encode(obs, task)
-        next_z = z_encoded_all[1:]
+        next_z = z_encoded_all[1:].detach() # important to detach this, so that the consistency loss stabilizes!
         td_targets = self._td_target(next_z, reward, task)
 
         # Prepare for update
