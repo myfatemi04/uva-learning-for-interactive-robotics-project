@@ -302,6 +302,7 @@ class TDMPC2:
             next_z, pi, task, return_type="min", target=True
         )
 
+    @torch.compile()
     def update(self, buffer: Buffer):
         """
         Main update function. Corresponds to one iteration of model learning.
@@ -334,7 +335,9 @@ class TDMPC2:
 
         perf_time[2] = time.time()
 
-        next_z = z_encoded_all[1:].detach() # important to detach this, so that the consistency loss stabilizes!
+        next_z = z_encoded_all[
+            1:
+        ].detach()  # important to detach this, so that the consistency loss stabilizes!
         td_targets = self._td_target(next_z, reward, task)
 
         perf_time[3] = time.time()
@@ -365,7 +368,7 @@ class TDMPC2:
         # We select the components of `z` that exclude the task embedding.
         # See WorldModel#encode.
         if self.cfg.task_dim > 0:
-            z_without_task_embedding = z_encoded_all[..., :-self.cfg.task_dim]
+            z_without_task_embedding = z_encoded_all[..., : -self.cfg.task_dim]
         else:
             z_without_task_embedding = z_encoded_all
 
@@ -373,7 +376,9 @@ class TDMPC2:
         # Concatenates to create [state_before state_after].
         # The other losses get normalized by self.cfg.horizon (e.g. line ~400).
         # However, we already implicitly do this with the F.mse_loss, so we can skip it.
-        pairs = torch.cat((z_without_task_embedding[:-1], z_without_task_embedding[1:]), dim=-1)
+        pairs = torch.cat(
+            (z_without_task_embedding[:-1], z_without_task_embedding[1:]), dim=-1
+        )
         inferred_actions = self.model._infer_action(pairs)
         action_inference_loss = F.mse_loss(action, inferred_actions)
 
@@ -416,6 +421,7 @@ class TDMPC2:
         perf_time[7] = time.time()
 
         # Compute losses
+        """
         reward_loss, value_loss = 0, 0
         for t in range(self.cfg.horizon):
             reward_loss += (
@@ -427,7 +433,88 @@ class TDMPC2:
                     math.soft_ce(qs[q][t], td_targets[t], self.cfg).mean()
                     * self.cfg.rho**t
                 )
-        
+        """
+        # reward_loss_0 = torch.stack(
+        #     [
+        #         math.soft_ce(reward_preds[t], reward[t], self.cfg).mean()
+        #         * self.cfg.rho**t
+        #         for t in range(self.cfg.horizon)
+        #     ]
+        # ).sum()
+        rhos = torch.tensor(
+            [self.cfg.rho**t for t in range(self.cfg.horizon)],
+            device=reward_preds.device,
+        )
+        reward_loss = (
+            math.soft_ce(reward_preds, reward, self.cfg).mean(dim=(-1, -2)) * rhos
+        ).sum()
+
+        # reward_loss_orig, value_loss_orig = 0, 0
+        # for t in range(self.cfg.horizon):
+        #     reward_loss_orig += (
+        #         math.soft_ce(reward_preds[t], reward[t], self.cfg).mean()
+        #         * self.cfg.rho**t
+        #     )
+        #     for q in range(self.cfg.num_q):
+        #         value_loss_orig += (
+        #             math.soft_ce(qs[q][t], td_targets[t], self.cfg).mean()
+        #             * self.cfg.rho**t
+        #         )
+
+        # print(
+        #     "Reward_Loss:",
+        #     [
+        #         f.item()
+        #         for f in [
+        #             reward_loss_orig,
+        #             reward_loss_0,
+        #             reward_loss,
+        #             reward_loss_orig - reward_loss_0,
+        #             reward_loss_0 - reward_loss,
+        #         ]
+        #     ],
+        # )
+        # print(f"{self.cfg.num_q=} {self.cfg.horizon=}")
+
+        # value_loss_0 = torch.stack(
+        #     [
+        #         math.soft_ce(qs[q][t], td_targets[t], self.cfg).mean() * self.cfg.rho**t
+        #         for t in range(self.cfg.horizon)
+        #         for q in range(self.cfg.num_q)
+        #     ]
+        # ).sum()
+        value_loss = (
+            math.soft_ce(
+                qs,
+                td_targets.unsqueeze(0).expand(self.cfg.num_q, -1, -1, -1),
+                self.cfg,
+            ).mean(dim=(2, 3)).sum(dim=0)
+            * rhos
+        ).sum()
+        # value_loss_2 = torch.stack([
+        #     math.soft_ce(
+        #         qs[:, t],
+        #         td_targets[t].unsqueeze(0).expand(self.cfg.num_q, -1, -1),
+        #         self.cfg,
+        #     ).mean() * self.cfg.rho ** t
+        #     for t in range(self.cfg.horizon)
+        # ]).sum()
+
+        # print(
+        #     "Value_Loss:",
+        #     [
+        #         f.item()
+        #         for f in [
+        #             value_loss_orig,
+        #             value_loss_0,
+        #             value_loss,
+        #             value_loss_orig - value_loss_0,
+        #             value_loss_0 - value_loss,
+        #             value_loss_0 - value_loss_2,
+        #         ]
+        #     ],
+        # )
+
         perf_time[8] = time.time()
 
         consistency_loss *= 1 / self.cfg.horizon
@@ -484,13 +571,16 @@ class TDMPC2:
             "clip_grad_norm",
             "optimizer_step",
             "update_pi",
-            "soft_update_target_Q"
+            "soft_update_target_Q",
         ]
 
-        print("Benchmark:")
-        for i in range(len(durations)):
-            print(durations[i], perf_time[i])
-        print()
+        # print("Benchmark:")
+        # total = perf_time[-1] - perf_time[0]
+        # print("Total time:", total)
+        # for i in range(len(durations)):
+        #     dt = perf_time[i + 1] - perf_time[i]
+        #     print(durations[i], f"{dt/total*100:.4f}%", dt)
+        # print()
 
         return {
             "action_inference_loss": float(action_inference_loss.mean().item()),
