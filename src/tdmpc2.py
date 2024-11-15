@@ -6,6 +6,7 @@ from common import math
 from common.scale import RunningScale
 from common.world_model import WorldModel
 from common.buffer import Buffer
+import time
 
 
 class TDMPC2:
@@ -312,8 +313,15 @@ class TDMPC2:
                 dict: Dictionary of training statistics.
         """
 
+        perf_time = [0] * 15
+
+        # Let's test the speed of each of the steps for `update`.
+        perf_time[0] = time.time()
+
         # The "sample" is a list of self.cfg.horizon+1 states and self.cfg.horizon actions.
         obs, action, reward, task = buffer.sample()
+
+        perf_time[1] = time.time()
 
         """
         New approach: also incorporates the ability to predict which action was taken.
@@ -323,12 +331,19 @@ class TDMPC2:
         vvvvv
         """
         z_encoded_all = self.model.encode(obs, task)
+
+        perf_time[2] = time.time()
+
         next_z = z_encoded_all[1:].detach() # important to detach this, so that the consistency loss stabilizes!
         td_targets = self._td_target(next_z, reward, task)
+
+        perf_time[3] = time.time()
 
         # Prepare for update
         self.optim.zero_grad(set_to_none=True)
         self.model.train()
+
+        perf_time[4] = time.time()
 
         # Latent rollout
         zs = torch.empty(
@@ -345,6 +360,8 @@ class TDMPC2:
             consistency_loss += F.mse_loss(z, next_z[t]) * self.cfg.rho**t
             zs[t + 1] = z
 
+        perf_time[5] = time.time()
+
         # We select the components of `z` that exclude the task embedding.
         # See WorldModel#encode.
         if self.cfg.task_dim > 0:
@@ -359,6 +376,8 @@ class TDMPC2:
         pairs = torch.cat((z_without_task_embedding[:-1], z_without_task_embedding[1:]), dim=-1)
         inferred_actions = self.model._infer_action(pairs)
         action_inference_loss = F.mse_loss(action, inferred_actions)
+
+        perf_time[6] = time.time()
 
         """
         ^^^ END "new approach" code. (Except for the part of adding the action_inference_loss to the total loss).
@@ -394,6 +413,8 @@ class TDMPC2:
         qs = self.model.Q(_zs, action, task, return_type="all")
         reward_preds = self.model.reward(_zs, action, task)
 
+        perf_time[7] = time.time()
+
         # Compute losses
         reward_loss, value_loss = 0, 0
         for t in range(self.cfg.horizon):
@@ -406,6 +427,9 @@ class TDMPC2:
                     math.soft_ce(qs[q][t], td_targets[t], self.cfg).mean()
                     * self.cfg.rho**t
                 )
+        
+        perf_time[8] = time.time()
+
         consistency_loss *= 1 / self.cfg.horizon
         reward_loss *= 1 / self.cfg.horizon
         value_loss *= 1 / (self.cfg.horizon * self.cfg.num_q)
@@ -416,21 +440,58 @@ class TDMPC2:
             + self.cfg.action_inference_coef * action_inference_loss
         )
 
+        perf_time[9] = time.time()
+
         # Update model
         total_loss.backward()
+
+        perf_time[10] = time.time()
+
         grad_norm = torch.nn.utils.clip_grad_norm_(
             self.model.parameters(), self.cfg.grad_clip_norm
         )
+
+        perf_time[11] = time.time()
+
         self.optim.step()
+
+        perf_time[12] = time.time()
 
         # Update policy
         pi_loss = self.update_pi(zs.detach(), task)
 
+        perf_time[13] = time.time()
+
         # Update target Q-functions
         self.model.soft_update_target_Q()
 
+        perf_time[14] = time.time()
+
         # Return training statistics
         self.model.eval()
+
+        durations = [
+            "buffer_sample",
+            "encode_obs",
+            "create_td_targets",
+            "zero_grad",
+            "compute_consistency_loss",
+            "compute_action_inference_loss",
+            "compute_reward_predictions",
+            "compute_reward_and_value_loss",
+            "compute_total_loss",
+            "perform_backward_pass",
+            "clip_grad_norm",
+            "optimizer_step",
+            "update_pi",
+            "soft_update_target_Q"
+        ]
+
+        print("Benchmark:")
+        for i in range(len(durations)):
+            print(durations[i], perf_time[i])
+        print()
+
         return {
             "action_inference_loss": float(action_inference_loss.mean().item()),
             "consistency_loss": float(consistency_loss.mean().item()),
