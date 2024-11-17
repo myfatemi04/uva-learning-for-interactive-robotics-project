@@ -415,6 +415,11 @@ class TDMPC2:
 
         # Predictions
         _zs = zs[:-1]
+        
+        # Test to see if we can relax the assumption of needing rewards at training time
+        if cfg.stopgrad_reward_and_q:
+            _zs = _zs.detach()
+
         qs = self.model.Q(_zs, action, task, return_type="all")
         reward_preds = self.model.reward(_zs, action, task)
 

@@ -4,6 +4,7 @@
 # for measuring the time of each component (env.step, agent.update, agent.act).
 print_profile: false
 wandb_name: ???
+stopgrad_reward_and_q: false
 
 # environment
 task: dog-run
