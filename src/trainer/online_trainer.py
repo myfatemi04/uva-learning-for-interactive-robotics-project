@@ -1,3 +1,4 @@
+import os
 from time import time
 from typing import Union
 
@@ -99,6 +100,12 @@ class OnlineTrainer(Trainer):
         has_content = False
 
         save_every = self.cfg.num_envs * 4000
+        episode_counter = 0
+
+        print("EPISODE SAVE DIR:", self.cfg.episode_save_dir)
+        print("ABS PATH:", os.path.abspath(self.cfg.episode_save_dir))
+        if self.cfg.episode_save_dir:
+            os.makedirs(self.cfg.episode_save_dir, exist_ok=True)
 
         while self._step <= self.cfg.steps:
             # Evaluate agent periodically
@@ -117,6 +124,12 @@ class OnlineTrainer(Trainer):
 
                 if self._step > 0:
                     tds: TensorDict = torch.cat(self._tds)  # type: ignore
+
+                    # save the episode to the episode_save_dir.
+                    if self.cfg.episode_save_dir:
+                        torch.save(tds, f"{self.cfg.episode_save_dir}/episode_{episode_counter:03d}")
+                    episode_counter += 1
+
                     self.logger.log(
                         {
                             "episode_reward": tds["reward"].nansum(0).mean(),

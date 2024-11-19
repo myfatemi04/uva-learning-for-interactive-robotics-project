@@ -93,11 +93,11 @@ def make_env(cfg):
         if is_dm_control_env(cfg.task):
             make_env = make_dm_control_env
             max_steps = 500
-        elif is_maniskill_env(cfg.task):
-            make_env = make_maniskill_env
-            max_steps = 100
         elif is_metaworld_env(cfg.task):
             make_env = make_metaworld_env
+            max_steps = 100
+        elif is_maniskill_env(cfg.task):
+            make_env = make_maniskill_env
             max_steps = 100
         elif is_myosuite_env(cfg.task):
             make_env = make_myosuite_env

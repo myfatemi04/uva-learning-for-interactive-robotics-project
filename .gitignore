@@ -3,3 +3,4 @@ env
 **/*.pt
 **/__pycache__/
 data
+episodes

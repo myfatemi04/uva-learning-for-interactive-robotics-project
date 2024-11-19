@@ -21,9 +21,10 @@ class MetaWorldWrapper(gym.Wrapper):
         self.env._freeze_rand_vec = False
 
     def reset(self, **kwargs):
-        obs = super().reset(**kwargs).astype(np.float32)
+        obs, info = super().reset(**kwargs)
+        obs = obs.astype(np.float32)
         self.env.step(np.zeros(self.env.action_space.shape))
-        return obs
+        return obs, info
 
     def step(self, action):
         reward = 0
@@ -39,8 +40,7 @@ class MetaWorldWrapper(gym.Wrapper):
 
     def render(self, *args, **kwargs):
         return self.env.render(
-            offscreen=True,
-            resolution=(render_size, render_size),
+            resolution=(self.render_size, self.render_size),
             camera_name=self.camera_name,
         ).copy()
 
@@ -50,12 +50,13 @@ def make_env(cfg):
     Make Meta-World environment.
     """
     env_id = cfg.task.split("-", 1)[-1] + "-v2-goal-observable"
+
     if (
         not cfg.task.startswith("mw-")
         or env_id not in ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE
     ):
         raise ValueError("Unknown task:", cfg.task)
-    assert cfg.obs == "state", "This task only supports state observations."
+    # assert cfg.obs == "state", "This task only supports state observations."
     env = ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE[env_id](seed=cfg.seed)
     env = MetaWorldWrapper(env, cfg, render_size=cfg.render_size)
     env = TimeLimit(env, max_episode_steps=100)

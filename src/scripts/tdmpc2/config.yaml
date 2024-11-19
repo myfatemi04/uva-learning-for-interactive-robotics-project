@@ -5,6 +5,7 @@
 print_profile: false
 wandb_name: ???
 stopgrad_reward_and_q: false
+episode_save_dir: ???
 
 # environment
 task: dog-run
