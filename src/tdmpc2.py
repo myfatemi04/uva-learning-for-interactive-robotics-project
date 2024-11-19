@@ -29,6 +29,7 @@ class TDMPC2:
                 {"params": self.model._dynamics.parameters()},
                 {"params": self.model._reward.parameters()},
                 {"params": self.model._Qs.parameters()},
+                {"params": self.model._infer_action.parameters()},
                 {
                     "params": (
                         self.model._task_emb.parameters() if self.cfg.multitask else []
@@ -415,7 +416,7 @@ class TDMPC2:
 
         # Predictions
         _zs = zs[:-1]
-        
+
         # Test to see if we can relax the assumption of needing rewards at training time
         if self.cfg.stopgrad_reward_and_q:
             _zs = _zs.detach()
@@ -493,7 +494,9 @@ class TDMPC2:
                 qs,
                 td_targets.unsqueeze(0).expand(self.cfg.num_q, -1, -1, -1),
                 self.cfg,
-            ).mean(dim=(2, 3)).sum(dim=0)
+            )
+            .mean(dim=(2, 3))
+            .sum(dim=0)
             * rhos
         ).sum()
         # value_loss_2 = torch.stack([
