@@ -63,7 +63,8 @@ def main():
     episodes = []
     for episodefile in (online_model_base / "episodes").iterdir():
         episodes.append(torch.load(episodefile))
-        break
+        if len(episodes) == 4:
+            break
 
     # Load previously saved model.
     # One thing I notice: The Q function parameters 
@@ -95,22 +96,23 @@ def main():
     # decoded = decoder(torch.randn((1, 512)))
     # print(decoded.shape)
 
-    for epoch in range(100):
-        # Nx9x64x64
-        obs = episodes[0]['obs'].squeeze(1)
-        enc = wm.encode(obs, task=None)
-        decoded = decoder(enc)
-        # Note: the size is 9x63x63, instead of the 9x64x64 that it should be.
-        # I think this is because of truncation during stride or etc.
-        # print(decoded.shape)
+    for epoch in range(500):
+        for ep in range(len(episodes)):
+            # Nx9x64x64
+            obs = episodes[ep]['obs'].squeeze(1)
+            enc = wm.encode(obs, task=None)
+            decoded = decoder(enc)
+            # Note: the size is 9x63x63, instead of the 9x64x64 that it should be.
+            # I think this is because of truncation during stride or etc.
+            # print(decoded.shape)
 
-        # compare decoded result with obs.
-        # we normalize the images to the range [-0.5, 0.5]
-        reconstruction_loss = F.mse_loss((obs[:, -3:, :-1, :-1].float()/255.0) - 0.5, decoded)
-        
-        optimizer.zero_grad()
-        reconstruction_loss.backward()
-        optimizer.step()
+            # compare decoded result with obs.
+            # we normalize the images to the range [-0.5, 0.5]
+            reconstruction_loss = F.mse_loss((obs[:, -3:, :-1, :-1].float()/255.0) - 0.5, decoded)
+            
+            optimizer.zero_grad()
+            reconstruction_loss.backward()
+            optimizer.step()
 
         print(reconstruction_loss.item())
 
@@ -127,6 +129,7 @@ def main():
                 plt.imshow(decoded[i, -3:].permute(1, 2, 0).detach().cpu().numpy()+0.5)
                 plt.title(f"Step {i} Obs (reconstructed)")
 
+            plt.tight_layout()
             plt.savefig(f"comparison_{epoch+1}.png")
     
 
