@@ -102,10 +102,11 @@ class OnlineTrainer(Trainer):
         save_every = self.cfg.num_envs * 4000
         episode_counter = 0
 
-        print("EPISODE SAVE DIR:", self.cfg.episode_save_dir)
-        print("ABS PATH:", os.path.abspath(self.cfg.episode_save_dir))
-        if self.cfg.episode_save_dir:
-            os.makedirs(self.cfg.episode_save_dir, exist_ok=True)
+        episode_save_dir = str(self.cfg.work_dir) + "/episodes"
+        print("EPISODE SAVE DIR:", episode_save_dir)
+        print("ABS PATH:", os.path.abspath(episode_save_dir))
+        if episode_save_dir:
+            os.makedirs(episode_save_dir, exist_ok=True)
 
         while self._step <= self.cfg.steps:
             # Evaluate agent periodically
@@ -126,8 +127,8 @@ class OnlineTrainer(Trainer):
                     tds: TensorDict = torch.cat(self._tds)  # type: ignore
 
                     # save the episode to the episode_save_dir.
-                    if self.cfg.episode_save_dir:
-                        torch.save(tds, f"{self.cfg.episode_save_dir}/episode_{episode_counter:03d}")
+                    if episode_save_dir:
+                        torch.save(tds, f"{episode_save_dir}/episode_{episode_counter:03d}")
                     episode_counter += 1
 
                     self.logger.log(
