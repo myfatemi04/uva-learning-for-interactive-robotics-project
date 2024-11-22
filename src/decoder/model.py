@@ -73,23 +73,32 @@ def main():
     cfg.task_dim = 0
     wm = WorldModel(cfg)
     wm.load_state_dict(model['model'])
+    
+    # Disable the shift augmentations
+    wm.eval()
 
     print("Successfully created world model")
 
-    print(episodes[0].keys())
     # Nx9x64x64
     obs = episodes[0]['obs'].squeeze(1)
-    enc = wm._encoder(obs)
-    print(enc.shape)
+
+    enc = wm.encode(obs, task=None)
 
     # get_sizes((9, 64, 64), 32)
     # 512 hidden state
     # 32 x 4 x 4 unflattened.
-    # decoder = create_decoder(512, 9, 32)
+    decoder = create_decoder(512, 9, 32)
     # decoded = decoder(torch.randn((1, 512)))
     # print(decoded.shape)
 
+    decoded = decoder(enc)
+    print(decoded.shape)
+
+    # compare decoded result with obs.
+    obs[:, :-1, :-1]
+
     # Note: the size is 9x63x63, instead of the 9x64x64 that it should be.
+    # I think this is because of truncation during stride or etc.
 
 if __name__ == '__main__':
     main()
