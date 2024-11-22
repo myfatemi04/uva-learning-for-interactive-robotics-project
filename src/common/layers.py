@@ -35,7 +35,7 @@ class ShiftAug(nn.Module):
 
 	def forward(self, x):
 		if not self.training:
-			return x
+			return x.float()
 
 		x = x.float()
 		n, _, h, w = x.size()

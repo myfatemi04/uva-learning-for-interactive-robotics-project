@@ -1,9 +1,15 @@
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-from common.layers import ShiftAug, PixelPreprocess
-from pathlib import Path
-from common.world_model import WorldModel
+import torch.nn.functional as F
+import torch.optim
 from omegaconf import OmegaConf
+
+from common.layers import PixelPreprocess, ShiftAug
+from common.world_model import WorldModel
+
 
 def get_sizes(in_shape, num_channels, act=None):
     """
@@ -71,34 +77,58 @@ def main():
     cfg.action_dim = 4
     cfg.multitask = False
     cfg.task_dim = 0
+
     wm = WorldModel(cfg)
     wm.load_state_dict(model['model'])
-    
+    wm.requires_grad_(False)
+
     # Disable the shift augmentations
     wm.eval()
 
     print("Successfully created world model")
 
-    # Nx9x64x64
-    obs = episodes[0]['obs'].squeeze(1)
 
-    enc = wm.encode(obs, task=None)
-
-    # get_sizes((9, 64, 64), 32)
     # 512 hidden state
     # 32 x 4 x 4 unflattened.
-    decoder = create_decoder(512, 9, 32)
+    decoder = create_decoder(512, 3, 32)
+    optimizer = torch.optim.Adam(decoder.parameters())
     # decoded = decoder(torch.randn((1, 512)))
     # print(decoded.shape)
 
-    decoded = decoder(enc)
-    print(decoded.shape)
+    for epoch in range(100):
+        # Nx9x64x64
+        obs = episodes[0]['obs'].squeeze(1)
+        enc = wm.encode(obs, task=None)
+        decoded = decoder(enc)
+        # Note: the size is 9x63x63, instead of the 9x64x64 that it should be.
+        # I think this is because of truncation during stride or etc.
+        # print(decoded.shape)
 
-    # compare decoded result with obs.
-    obs[:, :-1, :-1]
+        # compare decoded result with obs.
+        # we normalize the images to the range [-0.5, 0.5]
+        reconstruction_loss = F.mse_loss((obs[:, -3:, :-1, :-1].float()/255.0) - 0.5, decoded)
+        
+        optimizer.zero_grad()
+        reconstruction_loss.backward()
+        optimizer.step()
 
-    # Note: the size is 9x63x63, instead of the 9x64x64 that it should be.
-    # I think this is because of truncation during stride or etc.
+        print(reconstruction_loss.item())
+
+        # save a decoded result and see what it looks like.
+        if (epoch+1)%10 == 0:
+            plt.rcParams['figure.figsize'] = [4, 20]
+
+            for i in range(10):
+                plt.subplot(10, 2, 1 + 2*i)
+                plt.imshow(obs[i, -3:, :-1, :-1].permute(1, 2, 0).detach().cpu().numpy())
+                plt.title(f"Step {i} Obs")
+
+                plt.subplot(10, 2, 2 + 2*i)
+                plt.imshow(decoded[i, -3:].permute(1, 2, 0).detach().cpu().numpy()+0.5)
+                plt.title(f"Step {i} Obs (reconstructed)")
+
+            plt.savefig(f"comparison_{epoch+1}.png")
+    
 
 if __name__ == '__main__':
     main()
