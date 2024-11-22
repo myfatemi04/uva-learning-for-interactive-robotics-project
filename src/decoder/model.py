@@ -48,7 +48,7 @@ def create_decoder(in_dim, out_channels, num_channels, act=None):
 		nn.ConvTranspose2d(num_channels, out_channels, 7, stride=2), nn.ReLU(inplace=True),
 		nn.ConvTranspose2d(num_channels, num_channels, 5, stride=2), nn.ReLU(inplace=True),
 		nn.ConvTranspose2d(num_channels, num_channels, 3, stride=2), nn.ReLU(inplace=True),
-		nn.ConvTranspose2d(num_channels, num_channels, 3, stride=1),
+		nn.ConvTranspose2d(32, num_channels, 3, stride=1),
         # nn.Flatten()
         nn.Unflatten(-1, (32, 4, 4))
     ]
@@ -91,43 +91,54 @@ def main():
 
     # 512 hidden state
     # 32 x 4 x 4 unflattened.
-    decoder = create_decoder(512, 3, 32)
+    # encoder channels is 32
+    decoder_channels = 64
+    decoder = create_decoder(512, 3, decoder_channels)
     optimizer = torch.optim.Adam(decoder.parameters())
     # decoded = decoder(torch.randn((1, 512)))
     # print(decoded.shape)
 
+    bsz = 32
     for epoch in range(500):
         for ep in range(len(episodes)):
-            # Nx9x64x64
-            obs = episodes[ep]['obs'].squeeze(1)
-            enc = wm.encode(obs, task=None)
-            decoded = decoder(enc)
-            # Note: the size is 9x63x63, instead of the 9x64x64 that it should be.
-            # I think this is because of truncation during stride or etc.
-            # print(decoded.shape)
+            pointer = 0
+            # optionally, here you can set batch size to be the length of the episode
+            while pointer < len(episodes[ep]['obs']):
+                # Nx9x64x64
+                obs_batch = episodes[ep]['obs'].squeeze(1)[pointer:pointer+bsz]
+                enc = wm.encode(obs_batch, task=None)
+                decoded = decoder(enc)
+                # Note: the size is 9x63x63, instead of the 9x64x64 that it should be.
+                # I think this is because of truncation during stride or etc.
+                # print(decoded.shape)
 
-            # compare decoded result with obs.
-            # we normalize the images to the range [-0.5, 0.5]
-            reconstruction_loss = F.mse_loss((obs[:, -3:, :-1, :-1].float()/255.0) - 0.5, decoded)
-            
-            optimizer.zero_grad()
-            reconstruction_loss.backward()
-            optimizer.step()
+                # print(enc.shape, decoded.shape, obs_batch.shape, pointer, pointer+bsz)
+
+                # compare decoded result with obs.
+                # we normalize the images to the range [-0.5, 0.5]
+                reconstruction_loss = F.mse_loss((obs_batch[:, -3:, :-1, :-1].float()/255.0) - 0.5, decoded)
+                
+                optimizer.zero_grad()
+                reconstruction_loss.backward()
+                optimizer.step()
+
+                pointer += bsz
 
         print(reconstruction_loss.item())
 
         # save a decoded result and see what it looks like.
         if (epoch+1)%10 == 0:
-            plt.rcParams['figure.figsize'] = [4, 20]
+            plt.rcParams['figure.figsize'] = [20, 4]
 
+            obs = obs_batch
             for i in range(10):
-                plt.subplot(10, 2, 1 + 2*i)
+                plt.subplot(2, 10, 1 + i)
                 plt.imshow(obs[i, -3:, :-1, :-1].permute(1, 2, 0).detach().cpu().numpy())
                 plt.title(f"Step {i} Obs")
 
-                plt.subplot(10, 2, 2 + 2*i)
+                plt.subplot(2, 10, 11 + i)
                 plt.imshow(decoded[i, -3:].permute(1, 2, 0).detach().cpu().numpy()+0.5)
-                plt.title(f"Step {i} Obs (reconstructed)")
+                plt.title(f"Step {i} Reconstruction")
 
             plt.tight_layout()
             plt.savefig(f"comparison_{epoch+1}.png")
