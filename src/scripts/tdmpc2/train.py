@@ -24,8 +24,8 @@ torch.backends.cudnn.benchmark = True
 
 def get_sub_state_dict(state_dict, key):
     return {
-        state_dict_key[len(key + '.')]: state_dict_value
-        for (state_dict_key, state_dict_value)
+        state_dict_key[len(key + '.'):]: state_dict_value
+        for (state_dict_key, state_dict_value) in state_dict.items()
         if state_dict_key.startswith(key + '.')
     }
 
@@ -59,6 +59,9 @@ def train(cfg: dict):
     set_seed(cfg.seed)
     print(colored("Work dir:", "yellow", attrs=["bold"]), cfg.work_dir)
 
+    # The environment must be initialized before the TDMPC2 object, because
+    # it populates the obs_shape key in the cfg object.
+    env = make_env(cfg)
     agent = TDMPC2(cfg)
 
     '''
@@ -73,8 +76,8 @@ def train(cfg: dict):
         Whether to freeze the _encoder and _dynamics attributes of the TDMPC2 model.
 
     '''
-    if self.cfg.encoder_and_dynamics_checkpoint:
-        path = str(self.cfg.encoder_and_dynamics_checkpoint)
+    if cfg.encoder_and_dynamics_checkpoint:
+        path = str(cfg.encoder_and_dynamics_checkpoint)
         if '.pt' not in path:
             path = os.path.join(path, 'latest.pt')
         
@@ -94,14 +97,14 @@ def train(cfg: dict):
             get_sub_state_dict(state_dict, '_dynamics')
         )
 
-        if self.cfg.encoder_and_dynamics_freeze:
+        if cfg.encoder_and_dynamics_freeze:
             agent.model._encoder.requires_grad_(False)
             agent.model._dynamics.requires_grad_(False)
 
     trainer_cls = OfflineTrainer if cfg.multitask else OnlineTrainer
     trainer = trainer_cls(
         cfg=cfg,
-        env=make_env(cfg),
+        env=env,
         agent=agent,
         buffer=Buffer(cfg),
         logger=Logger(cfg),

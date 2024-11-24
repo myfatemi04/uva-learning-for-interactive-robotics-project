@@ -9,6 +9,9 @@ episode_save_dir: ???
 # residual_dynamics: true
 action_inference_coef: 1
 
+encoder_and_dynamics_checkpoint: ???
+encoder_and_dynamics_freeze: true
+
 # environment
 task: ???
 obs: rgb
@@ -26,7 +29,6 @@ batch_size: 256
 steps_per_update: 1
 reward_coef: 0.1
 value_coef: 0.1
-action_inference_coef: 0
 consistency_coef: 20
 rho: 0.5
 lr: 3e-4
