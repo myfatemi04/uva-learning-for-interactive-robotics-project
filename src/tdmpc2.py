@@ -22,11 +22,17 @@ class TDMPC2:
         self.model = WorldModel(cfg).to(self.device)
         self.optim = torch.optim.Adam(
             [
-                {
-                    "params": self.model._encoder.parameters(),
-                    "lr": self.cfg.lr * self.cfg.enc_lr_scale,
-                },
-                {"params": self.model._dynamics.parameters()},
+                *(
+                    [
+                        {
+                            "params": self.model._encoder.parameters(),
+                            "lr": self.cfg.lr * self.cfg.enc_lr_scale,
+                        },
+                        {"params": self.model._dynamics.parameters()},
+                    ]
+                    if not self.cfg.encoder_and_dynamics_freeze
+                    else []
+                ),
                 {"params": self.model._reward.parameters()},
                 {"params": self.model._Qs.parameters()},
                 {"params": self.model._infer_action.parameters()},
@@ -303,7 +309,7 @@ class TDMPC2:
             next_z, pi, task, return_type="min", target=True
         )
 
-    @torch.compile()
+    # @torch.compile()
     def update(self, buffer: Buffer):
         """
         Main update function. Corresponds to one iteration of model learning.
@@ -528,12 +534,19 @@ class TDMPC2:
         consistency_loss *= 1 / self.cfg.horizon
         reward_loss *= 1 / self.cfg.horizon
         value_loss *= 1 / (self.cfg.horizon * self.cfg.num_q)
-        total_loss = (
-            self.cfg.consistency_coef * consistency_loss
-            + self.cfg.reward_coef * reward_loss
-            + self.cfg.value_coef * value_loss
-            + self.cfg.action_inference_coef * action_inference_loss
-        )
+
+        if self.cfg.encoder_and_dynamics_freeze:
+            total_loss = (
+                self.cfg.reward_coef * reward_loss
+                + self.cfg.value_coef * value_loss
+            )
+        else:
+            total_loss = (
+                (self.cfg.consistency_coef * consistency_loss
+                + self.cfg.action_inference_coef * action_inference_loss)
+                + self.cfg.reward_coef * reward_loss
+                + self.cfg.value_coef * value_loss
+            )
 
         perf_time[9] = time.time()
 

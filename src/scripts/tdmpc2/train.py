@@ -96,10 +96,14 @@ def train(cfg: dict):
         agent.model._dynamics.load_state_dict(
             get_sub_state_dict(state_dict, '_dynamics')
         )
+        agent.model._infer_action.load_state_dict(
+            get_sub_state_dict(state_dict, '_infer_action')
+        )
 
         if cfg.encoder_and_dynamics_freeze:
             agent.model._encoder.requires_grad_(False)
             agent.model._dynamics.requires_grad_(False)
+            agent.model._infer_action.requires_grad_(False)
 
     trainer_cls = OfflineTrainer if cfg.multitask else OnlineTrainer
     trainer = trainer_cls(

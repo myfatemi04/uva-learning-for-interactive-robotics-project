@@ -9,7 +9,7 @@ episode_save_dir: ???
 # residual_dynamics: true
 action_inference_coef: 1
 
-encoder_and_dynamics_checkpoint: ???
+encoder_and_dynamics_checkpoint: null
 encoder_and_dynamics_freeze: true
 
 # environment
