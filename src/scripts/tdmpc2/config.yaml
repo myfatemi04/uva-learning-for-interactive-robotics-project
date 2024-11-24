@@ -4,19 +4,20 @@
 # for measuring the time of each component (env.step, agent.update, agent.act).
 print_profile: false
 wandb_name: ???
-stopgrad_reward_and_q: false
+stopgrad_reward_and_q: true
 episode_save_dir: ???
 # residual_dynamics: true
+action_inference_coef: 1
 
 # environment
-task: dog-run
-obs: state
-num_envs: 32
+task: ???
+obs: rgb
+num_envs: 1
 render_size: 64
 
 # evaluation
 checkpoint: ???
-eval_episodes: 32
+eval_episodes: 10
 eval_freq: 50000
 
 # training
@@ -61,7 +62,7 @@ vmin: -10
 vmax: +10
 
 # architecture
-model_size: 48
+# model_size: 48
 num_enc_layers: 2
 enc_dim: 256
 num_channels: 32
@@ -71,8 +72,6 @@ task_dim: 96
 num_q: 5
 dropout: 0.01
 simnorm_dim: 8
-# valid values are "consistency", "cpc"
-predictive_loss_function: cpc
 
 # logging
 wandb_project: tdmpc2_test
