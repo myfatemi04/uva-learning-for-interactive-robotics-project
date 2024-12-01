@@ -369,7 +369,7 @@ class TDMPC2:
         consistency_loss = 0
         for t in range(self.cfg.horizon):
             z = self.model.next(z, action[t], task)
-            prediction_errors = ((z - next_z[t]) ** 2).sum(dim=-1)
+            prediction_errors = ((z - next_z[t]) ** 2).mean(dim=-1)
             consistency_loss += prediction_errors.mean() * self.cfg.rho**t
             zs[t + 1] = z
             intrinsic_reward[t] = prediction_errors.detach().unsqueeze(-1)
