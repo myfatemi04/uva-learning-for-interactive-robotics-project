@@ -93,7 +93,7 @@ class VideoRecorder:
 
     def record(self, env):
         if self.enabled:
-            env_render = env.render()
+            env_render = env.render()[0]
             # Implies a vectorized environment.
             # Only render the first frame.
             if len(env_render.shape) == 5:

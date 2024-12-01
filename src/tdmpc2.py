@@ -321,13 +321,14 @@ class TDMPC2:
                 dict: Dictionary of training statistics.
         """
 
-        perf_time = [0] * 15
+        perf_time = [0.0] * 15
 
         # Let's test the speed of each of the steps for `update`.
         perf_time[0] = time.time()
 
         # The "sample" is a list of self.cfg.horizon+1 states and self.cfg.horizon actions.
         obs, action, reward, task = buffer.sample()
+        assert action is not None
 
         perf_time[1] = time.time()
 

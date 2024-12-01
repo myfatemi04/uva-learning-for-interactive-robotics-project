@@ -135,13 +135,9 @@ class WorldModel(nn.Module):
         """
         Predicts the next latent state given the current latent state and action.
         """
-        prev_z = z
         if self.cfg.multitask:
             z = self.task_emb(z, task)
         z = torch.cat([z, a], dim=-1)
-        # if self.cfg.residual_dynamics:
-        #     return prev_z.detach() + self._dynamics(z)
-        # else:
         return self._dynamics(z)
 
     def reward(self, z, a, task):

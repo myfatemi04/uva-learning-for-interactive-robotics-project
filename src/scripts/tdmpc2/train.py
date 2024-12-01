@@ -2,22 +2,22 @@ import os
 
 os.environ["MUJOCO_GL"] = "egl"
 os.environ["LAZY_LEGACY_OP"] = "0"
+import shutil
 import warnings
 
 warnings.filterwarnings("ignore")
-import torch
-
 import hydra
+import torch
 from termcolor import colored
 
+from common.buffer import Buffer
+from common.logger import Logger
 from common.parser import parse_cfg
 from common.seed import set_seed
-from common.buffer import Buffer
 from envs import make_env
 from tdmpc2 import TDMPC2
 from trainer.offline_trainer import OfflineTrainer
 from trainer.online_trainer import OnlineTrainer
-from common.logger import Logger
 
 torch.backends.cudnn.benchmark = True
 
@@ -58,6 +58,9 @@ def train(cfg: dict):
     cfg = parse_cfg(cfg)
     set_seed(cfg.seed)
     print(colored("Work dir:", "yellow", attrs=["bold"]), cfg.work_dir)
+
+    # Store the hydra config...
+    shutil.copytree(str(hydra.core.hydra_config.HydraConfig.get().runtime.output_dir) + "/.hydra", str(cfg.work_dir) + "/.hydra")
 
     # The environment must be initialized before the TDMPC2 object, because
     # it populates the obs_shape key in the cfg object.
