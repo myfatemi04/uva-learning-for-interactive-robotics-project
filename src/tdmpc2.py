@@ -328,8 +328,8 @@ class TDMPC2:
 
         # The "sample" is a list of self.cfg.horizon+1 states and self.cfg.horizon actions.
         obs, action, extrinsic_reward, task = buffer.sample()
+        # (time, batch, 1)
         intrinsic_reward = torch.zeros_like(extrinsic_reward)
-
         assert action is not None
 
         perf_time[1] = time.time()
@@ -372,7 +372,7 @@ class TDMPC2:
             prediction_errors = ((z - next_z[t]) ** 2).sum(dim=-1)
             consistency_loss += prediction_errors.mean() * self.cfg.rho**t
             zs[t + 1] = z
-            intrinsic_reward[t] = prediction_errors.detach()
+            intrinsic_reward[t] = prediction_errors.detach().unsqueeze(-1)
 
         # Incorporate an *intrinsic* curiosity reward.
         reward = (

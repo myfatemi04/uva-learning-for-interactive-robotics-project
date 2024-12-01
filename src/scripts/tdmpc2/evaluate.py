@@ -82,7 +82,6 @@ def evaluate(cfg: dict):
 			t = 0
 			if cfg.save_video:
 				frames = [env.render()[0]]
-			print(frames[0].shape)
 			while not (terminated or truncated):
 				action = agent.act(obs, t0=t==0, task=task_idx)
 				obs, reward, terminated, truncated, info = env.step(action)
