@@ -327,7 +327,9 @@ class TDMPC2:
         perf_time[0] = time.time()
 
         # The "sample" is a list of self.cfg.horizon+1 states and self.cfg.horizon actions.
-        obs, action, reward, task = buffer.sample()
+        obs, action, extrinsic_reward, task = buffer.sample()
+        intrinsic_reward = torch.zeros_like(extrinsic_reward)
+
         assert action is not None
 
         perf_time[1] = time.time()
@@ -346,7 +348,6 @@ class TDMPC2:
         next_z = z_encoded_all[
             1:
         ].detach()  # important to detach this, so that the consistency loss stabilizes!
-        td_targets = self._td_target(next_z, reward, task)
 
         perf_time[3] = time.time()
 
@@ -368,8 +369,17 @@ class TDMPC2:
         consistency_loss = 0
         for t in range(self.cfg.horizon):
             z = self.model.next(z, action[t], task)
-            consistency_loss += F.mse_loss(z, next_z[t]) * self.cfg.rho**t
+            prediction_errors = ((z - next_z[t]) ** 2).sum(dim=-1)
+            consistency_loss += prediction_errors.mean() * self.cfg.rho**t
             zs[t + 1] = z
+            intrinsic_reward[t] = prediction_errors.detach()
+
+        # Incorporate an *intrinsic* curiosity reward.
+        reward = (
+            extrinsic_reward * self.cfg.environment_reward_coef +
+            intrinsic_reward * self.cfg.prediction_error_reward_coef
+        )
+        td_targets = self._td_target(next_z, reward, task)
 
         perf_time[5] = time.time()
 
@@ -609,6 +619,7 @@ class TDMPC2:
             "consistency_loss": float(consistency_loss.mean().item()),
             "reward_loss": float(reward_loss.mean().item()),
             "value_loss": float(value_loss.mean().item()),
+            "intrinsic_reward": float(intrinsic_reward.mean().item()),
             "pi_loss": pi_loss,
             "total_loss": float(total_loss.mean().item()),
             "grad_norm": float(grad_norm),

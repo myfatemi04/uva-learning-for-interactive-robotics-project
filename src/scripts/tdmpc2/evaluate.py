@@ -41,7 +41,7 @@ def evaluate(cfg: dict):
 	"""
 	assert torch.cuda.is_available()
 	assert cfg.eval_episodes > 0, 'Must evaluate at least 1 episode.'
-	cfg = parse_cfg(cfg)
+	cfg = parse_cfg(cfg, is_eval=True)
 	set_seed(cfg.seed)
 	print(colored(f'Task: {cfg.task}', 'blue', attrs=['bold']))
 	print(colored(f'Model size: {cfg.get("model_size", "default")}', 'blue', attrs=['bold']))
@@ -73,16 +73,23 @@ def evaluate(cfg: dict):
 			task_idx = None
 		ep_rewards, ep_successes = [], []
 		for i in range(cfg.eval_episodes):
-			obs, done, ep_reward, t = env.reset(task_idx=task_idx), False, 0, 0
+			if cfg.multitask:
+				obs, info = env.reset(task_idx=task_idx)
+			else:
+				obs, info = env.reset()
+			terminated = truncated = False
+			ep_reward = 0
+			t = 0
 			if cfg.save_video:
-				frames = [env.render()]
-			while not done:
+				frames = [env.render()[0]]
+			print(frames[0].shape)
+			while not (terminated or truncated):
 				action = agent.act(obs, t0=t==0, task=task_idx)
-				obs, reward, done, info = env.step(action)
+				obs, reward, terminated, truncated, info = env.step(action)
 				ep_reward += reward
 				t += 1
 				if cfg.save_video:
-					frames.append(env.render())
+					frames.append(env.render()[0])
 			ep_rewards.append(ep_reward)
 			ep_successes.append(info['success'])
 			if cfg.save_video:

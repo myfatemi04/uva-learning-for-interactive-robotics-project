@@ -7,7 +7,7 @@ from omegaconf import OmegaConf
 from common import MODEL_SIZE, TASK_SET
 
 
-def parse_cfg(cfg: OmegaConf) -> OmegaConf:
+def parse_cfg(cfg: OmegaConf, is_eval=False) -> OmegaConf:
 	"""
 	Parses a Hydra config. Mostly for convenience.
 	"""
@@ -36,8 +36,10 @@ def parse_cfg(cfg: OmegaConf) -> OmegaConf:
 
 	# Convenience
 	# cfg.work_dir = Path(cfg.work_dir)
-	cfg.work_dir = Path(hydra.utils.get_original_cwd()) / ".." / "episodes" / cfg.wandb_name
-	# cfg.work_dir = Path(hydra.utils.get_original_cwd()) / 'logs' / cfg.task / str(cfg.seed) / cfg.exp_name
+	if is_eval:
+		cfg.work_dir = Path(hydra.utils.get_original_cwd()) / '..' / "evals" / cfg.task / str(cfg.seed) / cfg.exp_name
+	else:
+		cfg.work_dir = Path(hydra.utils.get_original_cwd()) / ".." / "episodes" / cfg.wandb_name
 	cfg.task_title = cfg.task.replace("-", " ").title()
 	cfg.bin_size = (cfg.vmax - cfg.vmin) / (cfg.num_bins-1) # Bin size for discrete regression
 
