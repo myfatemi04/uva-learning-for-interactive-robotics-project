@@ -16,7 +16,7 @@ dependencies:
 
   # everything else is just python/pip
   - pip=21.0
-  - python=3.9.0
+  - python=3.11.0
   - pip:
     # torch==2.5.1+cu118
     # torch-2.5.1+cu118-cp311-cp311-linux_x86_64.whl
@@ -34,6 +34,9 @@ dependencies:
     - pillow==11.0.0
     - termcolor==2.5.0
     - torchrl-nightly==2024.3.26
+
+    # For building Mujoco.
+    - Cython<3
 
     # Environments dependencies.
     - gym==0.26.2
