@@ -30,7 +30,7 @@ class TDMPC2:
                         },
                         {"params": self.model._dynamics.parameters()},
                     ]
-                    if not (self.cfg.encoder_and_dynamics_checkpoint and self.cfg.encoder_and_dynamics_freeze)
+                    if not self.cfg.encoder_and_dynamics_freeze
                     else []
                 ),
                 {"params": self.model._reward.parameters()},
@@ -546,7 +546,7 @@ class TDMPC2:
         reward_loss *= 1 / self.cfg.horizon
         value_loss *= 1 / (self.cfg.horizon * self.cfg.num_q)
 
-        if self.cfg.encoder_and_dynamics_checkpoint and self.cfg.encoder_and_dynamics_freeze:
+        if self.cfg.encoder_and_dynamics_freeze:
             total_loss = (
                 self.cfg.reward_coef * reward_loss
                 + self.cfg.value_coef * value_loss

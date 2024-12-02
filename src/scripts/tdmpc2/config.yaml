@@ -13,7 +13,7 @@ environment_reward_coef: 1
 prediction_error_reward_coef: 0
 
 encoder_and_dynamics_checkpoint: null
-encoder_and_dynamics_freeze: true
+encoder_and_dynamics_freeze: false
 
 # environment
 task: ???
